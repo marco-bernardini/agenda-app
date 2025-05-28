@@ -1,0 +1,16 @@
+# Ignore environment files
+.env
+.env.*
+
+# Ignore SQLite database files
+*.sqlite
+*.db
+*.db3
+*.structure.txt
+*.hash-password.js
+
+# (Optional) Ignore backup files
+*.sqlite-journal
+*.sqlite3
+
+node_modules

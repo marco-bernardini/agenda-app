@@ -523,7 +523,17 @@ export default function ViewAppointments() {
                         onChange={e => handleChange("data", e.target.value)}
                       />
                     ) : (
-                      <p className="text-sm">{a.data}</p>
+                      <p className="text-sm">
+                        {a.data
+                          ? new Date(a.data).toLocaleString("it-IT", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })
+                          : ""}
+                      </p>
                     )}
                   </td>
                   <td className="p-4" style={{ minWidth: columnMinWidth }}>

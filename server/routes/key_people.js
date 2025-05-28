@@ -1,7 +1,6 @@
 import express from "express";
-import db from "../models/db.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
-import { logAction } from "../utils/logAction.js";
+import pool from "../models/db.js";
 
 const router = express.Router();
 
@@ -9,39 +8,26 @@ router.use(authenticateToken);
 
 // Add a new key person
 router.post("/", async (req, res) => {
-  const { nome, cognome, id_compagnia, ruolo, linkedIn } = req.body;
-  if (!nome || !cognome || !id_compagnia) {
-    return res.status(400).json({ error: "nome, cognome e id_compagnia sono obbligatori." });
+  const { nome, cognome, id_cliente, ruolo, linkedin } = req.body;
+  if (!nome || !cognome || !id_cliente) {
+    return res.status(400).json({ error: "nome, cognome e compagnia sono obbligatori." });
   }
   try {
-    const stmt = await db.run(
-      "INSERT INTO key_people (nome, cognome, id_compagnia, ruolo, linkedIn) VALUES (?, ?, ?, ?, ?)",
-      nome,
-      cognome,
-      id_compagnia,
-      ruolo || null,
-      linkedIn || null
+    const result = await pool.query(
+      "INSERT INTO key_people (nome, cognome, id_cliente, ruolo, linkedin) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [nome, cognome, id_cliente, ruolo || null, linkedin || null]
     );
-
-    // Log the action
-    await logAction({
-      user_id: req.user.id,
-      action: "add",
-      entity: "key_person",
-      entity_id: stmt.lastID,
-      details: req.body
-    });
-
-    res.json({ id: stmt.lastID });
+    res.json({ id: result.rows[0].id });
   } catch (err) {
+    console.error("Insert error:", err);
     res.status(500).json({ error: "Errore nell'inserimento della key person." });
   }
 });
 
-// (Optional) Get all key people
+// Get all key people
 router.get("/", async (req, res) => {
   try {
-    const rows = await db.all("SELECT * FROM key_people");
+    const { rows } = await pool.query("SELECT * FROM key_people");
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: "Errore nel recupero delle key people." });

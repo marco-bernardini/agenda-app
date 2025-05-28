@@ -5,9 +5,11 @@ import brainBg from '/Brain.jpg';
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showWaitMsg, setShowWaitMsg] = useState(false); // NEW
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setShowWaitMsg(true); // Show message after login click
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: "POST",
@@ -19,6 +21,7 @@ export default function LoginPage({ onLogin }) {
       if (!res.ok) {
         const text = await res.text();
         alert("Login failed: " + text);
+        setShowWaitMsg(false); // Hide message on error
         return;
       }
 
@@ -32,9 +35,11 @@ export default function LoginPage({ onLogin }) {
         onLogin();
       } else {
         alert(data.error || "Something went wrong.");
+        setShowWaitMsg(false); // Hide message on error
       }
     } catch (err) {
       alert("Server error. Check the console.");
+      setShowWaitMsg(false); // Hide message on error
     }
   }
 
@@ -87,14 +92,20 @@ export default function LoginPage({ onLogin }) {
             type="password"
             className="input-bg-50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-400 outline-none text-gray-900 border border-gray-300"
           />
-          <button
-            type="submit"
-            className="cursor-pointer relative inline-flex items-center justify-center p-0.5 overflow-hidden text-base font-bold rounded-lg group bg-gradient-to-br from-[#1DC8DF] via-[#2A66DD] to-[#753BBD] hover:from-[#1DC8DF] hover:to-[#2A66DD] focus:ring-4 focus:outline-none focus:ring-blue-100 transition"
-          >
-            <span className="relative w-full px-6 py-2.5 bg-transparent rounded-md text-white font-bold">
-              Login
+          {showWaitMsg ? (
+            <span className="relative w-full px-6 py-2.5 bg-transparent rounded-md text-white font-bold text-center">
+              Attendere qualche secondo dopo il login, il server può impiegare più del previsto a rispondere.
             </span>
-          </button>
+          ) : (
+            <button
+              type="submit"
+              className="cursor-pointer relative inline-flex items-center justify-center p-0.5 overflow-hidden text-base font-bold rounded-lg group bg-gradient-to-br from-[#1DC8DF] via-[#2A66DD] to-[#753BBD] hover:from-[#1DC8DF] hover:to-[#2A66DD] focus:ring-4 focus:outline-none focus:ring-blue-100 transition"
+            >
+              <span className="relative w-full px-6 py-2.5 bg-transparent rounded-md text-white font-bold">
+                Login
+              </span>
+            </button>
+          )}
         </form>
       </div>
     </div>

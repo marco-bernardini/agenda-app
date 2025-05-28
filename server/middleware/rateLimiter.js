@@ -12,7 +12,7 @@ export const authLimiter = rateLimit({
 // General API limiter: 100 requests per 30 minutes per IP
 export const apiLimiter = rateLimit({
   windowMs: 30 * 60 * 1000,
-  max: 100,
+  max: 1000,
   message: "Troppi tentativi, riprova tra 30 minuti.",
   standardHeaders: true,
   legacyHeaders: false,

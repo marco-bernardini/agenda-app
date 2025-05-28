@@ -248,6 +248,16 @@ export default function ViewAppointments() {
     return b.data.localeCompare(a.data);
   });
 
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/tasks`, {
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") }
+    })
+      .then(res => res.json())
+      .then(setTasks);
+  }, []);
+
   const columnMinWidth = "100px";
   let lastCliente = null;
   let isGrey = false;
@@ -364,6 +374,9 @@ export default function ViewAppointments() {
     });
     return map;
   }, [appointments]);
+
+  const [newTaskForApp, setNewTaskForApp] = useState(null);
+  const [newTaskDescrizione, setNewTaskDescrizione] = useState("");
 
   const trattativeList = useMemo(() => {
     // Helper: does at least one appointment for this trattativa match the filters?
@@ -784,16 +797,15 @@ export default function ViewAppointments() {
                           <table className="w-full text-left" style={{ background: "#23272f", tableLayout: "fixed" }}>
                             <thead>
                               <tr style={{ background: "#23272f" }}>
-                                <th className="p-4" style={{ color: "#fff" }}>Data</th>
-                                <th className="p-4" style={{ color: "#fff" }}>Esito</th>
-                                <th className="p-4" style={{ color: "#fff" }}>Format</th>
+                                <th className="p-4" style={{ color: "#fff", width: "80px" }}>Data</th>
+                                <th className="p-4" style={{ color: "#fff", width: "100px" }}>Esito</th>
+                                <th className="p-4" style={{ color: "#fff", width: "80px" }}>Format</th>
                                 <th className="p-4" style={{ color: "#fff" }}>Referente Azienda</th>
                                 <th className="p-4" style={{ color: "#fff" }}>Referente SDG</th>
                                 <th className="p-4" style={{ color: "#fff" }}>Referente Alten</th>
-                                <th className="p-4" style={{ color: "#fff" }}>To Do</th>
-                                <th className="p-4" style={{ color: "#fff" }}>Next Steps</th>
+                                <th className="p-4" style={{ color: "#fff", minWidth: "200px" }}>Task</th>
                                 <th className="p-4" style={{ color: "#fff" }}>Note</th>
-                                <th className="p-4" style={{ color: "#fff" }}>Azioni</th>
+                                <th className="p-4" style={{ color: "#fff", width: "80px" }}>Azioni</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -892,14 +904,6 @@ export default function ViewAppointments() {
                                         <input
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
-                                          value={editData.next_steps || ""}
-                                          onChange={e => handleChange("next_steps", e.target.value)}
-                                        />
-                                      </td>
-                                      <td className="p-4" style={{ color: "#23272f" }}>
-                                        <input
-                                          type="text"
-                                          className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.note || ""}
                                           onChange={e => handleChange("note", e.target.value)}
                                         />
@@ -966,10 +970,112 @@ export default function ViewAppointments() {
                                         <span className="text-sm">{app.referente_alten}</span>
                                       </td>
                                       <td className="p-4" style={{ color: "#fff" }}>
-                                        <span className="text-sm whitespace-pre-line">{app.to_do}</span>
-                                      </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
-                                        <span className="text-sm whitespace-pre-line">{app.next_steps}</span>
+                                     {(Array.isArray(tasks) ? tasks : [])
+                                        .filter(task => task.id_appuntamento === app.id)
+                                        .map(task => (
+                                          <div
+                                            key={task.id}
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              background: task.status ? "#dcfce7" : "#fee2e2",
+                                              color: task.status ? "#166534" : "#991b1b",
+                                              borderRadius: "6px",
+                                              padding: "2px 8px",
+                                              marginBottom: "4px",
+                                              fontSize: "0.95em"
+                                            }}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={!!task.status}
+                                              onChange={async () => {
+                                                setTasks(prev =>
+                                                  prev.map(t =>
+                                                    t.id === task.id ? { ...t, status: !task.status } : t
+                                                  )
+                                                );
+                                                await fetch(`${import.meta.env.VITE_API_URL}/tasks/${task.id}/status`, {
+                                                  method: "PATCH",
+                                                  headers: {
+                                                    "Content-Type": "application/json",
+                                                    Authorization: "Bearer " + localStorage.getItem("token"),
+                                                  },
+                                                  body: JSON.stringify({ status: !task.status }),
+                                                });
+                                              }}
+                                              style={{ marginRight: "8px" }}
+                                            />
+                                            {task.descrizione}
+                                          </div>
+                                        ))}
+                                      {editAppointmentId !== app.id && (
+                                        <div style={{ marginTop: 4 }}>
+                                          <button
+                                            style={{
+                                              background: "#38bdf8",
+                                              color: "#fff",
+                                              border: "none",
+                                              borderRadius: "50%",
+                                              width: 24,
+                                              height: 24,
+                                              fontSize: 18,
+                                              cursor: "pointer",
+                                              marginRight: 8,
+                                              verticalAlign: "middle"
+                                            }}
+                                            title="Aggiungi task"
+                                            onClick={() => setNewTaskForApp(app.id)}
+                                          >
+                                            +
+                                          </button>
+                                          {newTaskForApp === app.id && (
+                                            <form
+                                              style={{ display: "inline-block" }}
+                                              onSubmit={async e => {
+                                                e.preventDefault();
+                                                if (!newTaskDescrizione.trim()) return;
+                                                // POST new task
+                                                const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks`, {
+                                                  method: "POST",
+                                                  headers: {
+                                                    "Content-Type": "application/json",
+                                                    Authorization: "Bearer " + localStorage.getItem("token"),
+                                                  },
+                                                  body: JSON.stringify({
+                                                    descrizione: newTaskDescrizione,
+                                                    id_appuntamento: app.id,
+                                                    status: false,
+                                                  }),
+                                                });
+                                                if (res.ok) {
+                                                  const created = await res.json();
+                                                  setTasks(prev => [...prev, created]);
+                                                  setNewTaskDescrizione("");
+                                                  setNewTaskForApp(null);
+                                                }
+                                              }}
+                                            >
+                                              <input
+                                                type="text"
+                                                value={newTaskDescrizione}
+                                                onChange={e => setNewTaskDescrizione(e.target.value)}
+                                                placeholder="Nuovo task..."
+                                                style={{ marginRight: 4, padding: "2px 6px", borderRadius: 4, border: "1px solid #ccc", color: "#23272f",}}
+                                                autoFocus
+                                              />
+                                              <button type="submit" style={{
+                                                background: "#22c55e",
+                                                color: "#fff",
+                                                border: "none",
+                                                borderRadius: 4,
+                                                padding: "2px 8px",
+                                                cursor: "pointer"
+                                              }}>Aggiungi</button>
+                                            </form>
+                                          )}
+                                        </div>
+                                      )}
                                       </td>
                                       <td className="p-4" style={{ color: "#fff" }}>
                                         <span className="text-sm whitespace-pre-line">{app.note}</span>

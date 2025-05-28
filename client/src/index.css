@@ -1,0 +1,36 @@
+@import 'flowbite';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+select option {
+  background-color: #2A66DD;
+  color: #fff;
+}
+
+/* Add to your main CSS file */
+.react-select__control {
+  border-radius: 0.5rem;
+  border-color: #d1d5db;
+  min-height: 42px;
+}
+.react-select__multi-value {
+  background: #2A66DD;
+  color: #fff;
+}
+.react-select__multi-value__label {
+  color: #fff;
+}
+.react-select__multi-value__remove {
+  color: #fff;
+  background: #1DC8DF;
+}
+
+.input-bg-50 {
+  background: rgba(255,255,255,0.5) !important;
+}

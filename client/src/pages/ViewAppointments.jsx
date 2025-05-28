@@ -1,11 +1,13 @@
 import { useEffect, useState, useMemo } from "react";
 import { FaEdit, FaSave, FaTimes } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import abstractBg from "/Abstract.jpg";
 import Select from "react-select";
 import React from "react";
 
 export default function ViewAppointments() {
+  const navigate = useNavigate();
+
   const [filter, setFilter] = useState("tutti");
   const [selectedCompany, setSelectedCompany] = useState("tutti");
   const [companies, setCompanies] = useState([]);
@@ -14,7 +16,8 @@ export default function ViewAppointments() {
   const [selectedSDG, setSelectedSDG] = useState("tutti");
   const [dateFilter, setDateFilter] = useState("tutti");
   const [appointments, setAppointments] = useState([]);
-  const [editId, setEditId] = useState(null);
+  const [editTrattativaId, setEditTrattativaId] = useState(null);
+  const [editAppointmentId, setEditAppointmentId] = useState(null);
   const [editData, setEditData] = useState({});
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState("tutti");
   const [appointmentKeyPeople, setAppointmentKeyPeople] = useState([]);
@@ -114,7 +117,30 @@ export default function ViewAppointments() {
 
     return keyPeople
       .filter(kp => keyPersonIds.includes(kp.id))
-      .map(kp => `${kp.nome} ${kp.cognome}`);
+      .map(kp => (
+        <span
+          key={kp.id}
+          style={{
+            display: "inline-block",
+            borderRadius: "999px",
+            border: "1px solid #60a5fa",
+            background: "#e0f2fe",
+            color: "#2563eb",
+            padding: "2px 10px",
+            margin: "2px 4px 2px 0",
+            cursor: "pointer",
+            fontSize: "0.85em",
+            transition: "background 0.2s"
+          }}
+          onClick={e => {
+            e.stopPropagation();
+            navigate(`/key-people?personId=${kp.id}`);
+          }}
+          title="Vai ai dettagli del referente"
+        >
+          {kp.nome} {kp.cognome}
+        </span>
+      ));
   }
 
   // Helper: get ruoli for an appointment (for struttura fallback)
@@ -240,6 +266,7 @@ export default function ViewAppointments() {
     setEditData(prev => ({ ...prev, [field]: value }));
   };
 
+  // For trattativa note
   const handleSave = async (id) => {
     // Only update note for trattativa
     await fetch(`${import.meta.env.VITE_API_URL}/trattative/${id}/note`, {
@@ -250,7 +277,7 @@ export default function ViewAppointments() {
       },
       body: JSON.stringify({ note: editData.note }),
     });
-    setEditId(null);
+    setEditTrattativaId(null);
     setEditData({});
     // Refresh trattative
     fetch(`${import.meta.env.VITE_API_URL}/trattative`, {
@@ -258,6 +285,51 @@ export default function ViewAppointments() {
     })
       .then(res => res.json())
       .then(setTrattative);
+  };
+
+  // For appointments
+  const handleSaveAppointment = async (id) => {
+    // Only update note for trattativa
+    await fetch(`${import.meta.env.VITE_API_URL}/trattative/${id}/note`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+      body: JSON.stringify({ note: editData.note }),
+    });
+
+    // 1. Remove all old SDG relations for this appointment
+    const oldLinks = appointmentSdgGroup.filter(row => row.id_appuntamento === id);
+    for (const link of oldLinks) {
+      await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+        body: JSON.stringify({ id_appuntamento: id, id_sdg: link.id_sdg }),
+      });
+    }
+
+    // 2. Add new SDG relations (for each selected SDG)
+    const selectedSdgs = sdgList.filter(sdg =>
+      (editData.referente_sdg || []).includes(sdg.id)
+    );
+    for (const sdg of selectedSdgs) {
+      await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+        body: JSON.stringify({ id_appuntamento: id, id_sdg: sdg.id }),
+      });
+    }
+
+    setEditAppointmentId(null);
+    setEditData({});
+    // Optionally refresh data here
   };
 
   const toggleExpand = (id) => {
@@ -404,6 +476,71 @@ export default function ViewAppointments() {
     // Remove extra spaces and trim
     return cleaned.replace(/\s{2,}/g, " ").trim();
   }
+
+  // Place this function INSIDE the component, not after the closing }
+  function getSdgsForAppointmentIds(appointmentId) {
+    return appointmentSdgGroup
+      .filter(row => row.id_appuntamento === appointmentId)
+      .map(row => row.id_sdg);
+  }
+
+  function getKeyPeopleForAppointment(appointmentId) {
+    const keyPersonIds = appointmentKeyPeople
+      .filter(row => row.id_appuntamento === appointmentId)
+      .map(row => row.id_person);
+
+    return keyPeople
+      .filter(kp => keyPersonIds.includes(kp.id))
+      .map(kp => (
+        <span
+          key={kp.id}
+          style={{
+            display: "inline-block",
+            borderRadius: "999px",
+            border: "1px solid #60a5fa",
+            background: "#e0f2fe",
+            color: "#2563eb",
+            padding: "2px 10px",
+            margin: "2px 4px 2px 0",
+            cursor: "pointer",
+            fontSize: "0.85em",
+            transition: "background 0.2s"
+          }}
+          onClick={e => {
+            e.stopPropagation();
+            navigate(`/key-people?search=${encodeURIComponent(`${kp.nome} ${kp.cognome}`)}`);
+          }}
+          title="Vai ai dettagli del referente"
+        >
+          {kp.nome} {kp.cognome}
+        </span>
+      ));
+  }
+
+  function getSdgsNominativiForAppointment(appointmentId) {
+  const sdgIds = appointmentSdgGroup
+    .filter(row => row.id_appuntamento === appointmentId)
+    .map(row => row.id_sdg);
+  return sdgList
+    .filter(sdg => sdgIds.includes(sdg.id))
+    .map(sdg => (
+      <span
+        key={sdg.id}
+        style={{
+          display: "inline-block",
+          borderRadius: "999px",
+          border: "1px solid #38bdf8",
+          background: "#f0f9ff",
+          color: "#0ea5e9",
+          padding: "2px 10px",
+          margin: "2px 4px 2px 0",
+          fontSize: "0.85em"
+        }}
+      >
+        {sdg.nominativo}
+      </span>
+    ));
+}
 
   return (
     <div
@@ -616,7 +753,7 @@ export default function ViewAppointments() {
                     </td>
                     {/* --- ONLY ONE NOTE COLUMN, EDITABLE --- */}
                     <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                      {editId === trattativa.id ? (
+                      {editTrattativaId === trattativa.id ? (
                         <input
                           type="text"
                           className="w-full border rounded px-2 py-1"
@@ -630,7 +767,7 @@ export default function ViewAppointments() {
                         <span
                           className={`text-sm whitespace-pre-line cursor-pointer ${!trattativa.note ? "text-gray-400 italic" : ""}`}
                           onClick={() => {
-                            setEditId(trattativa.id);
+                            setEditTrattativaId(trattativa.id);
                             setEditData({ note: trattativa.note || "" });
                           }}
                           title="Clicca per modificare"
@@ -662,9 +799,9 @@ export default function ViewAppointments() {
                             <tbody>
                               {(trattativeMap[trattativa.id] || []).map(app => (
                                 <tr key={app.id} className="hover:bg-slate-700">
-                                  {editId === app.id ? (
+                                  {editAppointmentId === app.id ? (
                                     <>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
                                           type="date"
                                           className="w-full border rounded px-2 py-1 text-black"
@@ -672,7 +809,7 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("data", e.target.value)}
                                         />
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.esito || ""}
@@ -684,7 +821,7 @@ export default function ViewAppointments() {
                                           <option value="closed">Closed</option>
                                         </select>
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
@@ -692,23 +829,50 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("format", e.target.value)}
                                         />
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
-                                        <input
-                                          type="text"
+                                      <td className="p-4" style={{ color: "#23272f" }}>
+                                        <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.referente_azienda || ""}
                                           onChange={e => handleChange("referente_azienda", e.target.value)}
+                                        >
+                                          <option value="">Seleziona referente azienda</option>
+                                          {keyPeople
+                                            .filter(kp => kp.id_cliente === app.cliente_id)
+                                            .map(kp => (
+                                              <option key={kp.id} value={`${kp.nome} ${kp.cognome}`}>
+                                                {kp.nome} {kp.cognome}
+                                              </option>
+                                            ))}
+                                        </select>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
+                                        <Select
+                                          isMulti
+                                          options={sdgOptions}
+                                          value={sdgOptions.filter(opt => (editData.referente_sdg || []).includes(opt.value))}
+                                          onChange={selected =>
+                                            handleChange(
+                                              "referente_sdg",
+                                              selected ? selected.map(opt => opt.value) : []
+                                            )
+                                          }
+                                          className="react-select-container"
+                                          classNamePrefix="react-select"
+                                          placeholder="Seleziona referenti SDG..."
+                                          styles={{
+                                            control: (base) => ({
+                                              ...base,
+                                              minHeight: "38px",
+                                              backgroundColor: "white",
+                                            }),
+                                            menu: (base) => ({
+                                              ...base,
+                                              color: "#23272f"
+                                            })
+                                          }}
                                         />
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
-                                        <input
-                                          type="text"
-                                          className="w-full border rounded px-2 py-1 text-black"
-                                          value={editData.referente_sdg || ""}
-                                          onChange={e => handleChange("referente_sdg", e.target.value)}
-                                        />
-                                      </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
@@ -716,7 +880,7 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("referente_alten", e.target.value)}
                                         />
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
@@ -724,7 +888,7 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("to_do", e.target.value)}
                                         />
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
@@ -732,7 +896,7 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("next_steps", e.target.value)}
                                         />
                                       </td>
-                                      <td className="p-4" style={{ color: "#fff" }}>
+                                      <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
@@ -750,7 +914,10 @@ export default function ViewAppointments() {
                                         </button>
                                         <button
                                           className="text-red-400 cursor-pointer"
-                                          onClick={handleCancel}
+                                          onClick={() => {
+                                            setEditAppointmentId(null);
+                                            setEditData({});
+                                          }}
                                           title="Annulla"
                                         >
                                           <FaTimes />
@@ -790,10 +957,10 @@ export default function ViewAppointments() {
                                         <span className="text-sm">{app.format}</span>
                                       </td>
                                       <td className="p-4" style={{ color: "#fff" }}>
-                                        <span className="text-sm">{app.referente_azienda}</span>
+                                        <span className="text-sm">{getKeyPeopleForAppointment(app.id)}</span>
                                       </td>
                                       <td className="p-4" style={{ color: "#fff" }}>
-                                        <span className="text-sm">{app.referente_sdg}</span>
+                                        <span className="text-sm">{getSdgsNominativiForAppointment(app.id)}</span>
                                       </td>
                                       <td className="p-4" style={{ color: "#fff" }}>
                                         <span className="text-sm">{app.referente_alten}</span>
@@ -811,8 +978,11 @@ export default function ViewAppointments() {
                                         <button
                                           className="mr-2 text-blue-400 cursor-pointer"
                                           onClick={() => {
-                                            setEditId(app.id);
-                                            setEditData({ ...app });
+                                            setEditAppointmentId(app.id);
+                                            setEditData({
+                                              ...app,
+                                              referente_sdg: getSdgsForAppointmentIds(app.id),
+                                            });
                                           }}
                                           title="Modifica"
                                         >
@@ -837,4 +1007,10 @@ export default function ViewAppointments() {
       </div>
     </div>
   );
+}
+
+function getSdgsForAppointmentIds(appointmentId) {
+  return appointmentSdgGroup
+    .filter(row => row.id_appuntamento === appointmentId)
+    .map(row => row.id_sdg);
 }

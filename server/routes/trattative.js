@@ -33,4 +33,22 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Update only the note of a trattativa
+router.patch("/:id/note", async (req, res) => {
+  const { note } = req.body;
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      "UPDATE trattative SET note = $1 WHERE id = $2 RETURNING *",
+      [note, id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Trattativa non trovata." });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: "Errore nell'aggiornamento della nota." });
+  }
+});
+
 export default router;

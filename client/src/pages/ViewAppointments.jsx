@@ -3,6 +3,7 @@ import { FaEdit, FaSave, FaTimes } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import abstractBg from "/Abstract.jpg";
 import Select from "react-select";
+import React from "react";
 
 export default function ViewAppointments() {
   const [filter, setFilter] = useState("tutti");
@@ -19,6 +20,8 @@ export default function ViewAppointments() {
   const [appointmentKeyPeople, setAppointmentKeyPeople] = useState([]);
   const [keyPeople, setKeyPeople] = useState([]);
   const [altenList, setAltenList] = useState([]);
+  const [expanded, setExpanded] = useState({});
+  const [trattative, setTrattative] = useState([]);
 
   // Fetch all data including joins for appointments
   useEffect(() => {
@@ -82,6 +85,14 @@ export default function ViewAppointments() {
     })
       .then(res => res.json())
       .then(setAppointmentKeyPeople);
+  }, []);
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/trattative`, {
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") }
+    })
+      .then(res => res.json())
+      .then(setTrattative);
   }, []);
 
   // Helper: get SDG nominativi for an appointment
@@ -230,34 +241,27 @@ export default function ViewAppointments() {
   };
 
   const handleSave = async (id) => {
-    // Only send editable fields
-    const payload = {
-      esito: editData.esito,
-      referente_alten: editData.referente_alten,
-      struttura: editData.struttura,
-      data: editData.data,
-      format: editData.format,
-      to_do: editData.to_do,
-      next_steps: editData.next_steps,
-      note: editData.note,
-    };
-    await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti/${id}`, {
-      method: "PUT",
+    // Only update note for trattativa
+    await fetch(`${import.meta.env.VITE_API_URL}/trattative/${id}/note`, {
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + localStorage.getItem("token"),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ note: editData.note }),
     });
     setEditId(null);
     setEditData({});
-    fetch(`${import.meta.env.VITE_API_URL}/appuntamenti?withDetails=1`, {
-      headers: {
-        Authorization: "Bearer " + localStorage.getItem("token"),
-      },
+    // Refresh trattative
+    fetch(`${import.meta.env.VITE_API_URL}/trattative`, {
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") }
     })
       .then(res => res.json())
-      .then(setAppointments);
+      .then(setTrattative);
+  };
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const dropdownClass =
@@ -279,6 +283,128 @@ export default function ViewAppointments() {
     label: `${sdg.nominativo} (${sdg.business_unit})`
   }));
 
+  const trattativeMap = useMemo(() => {
+    const map = {};
+    appointments.forEach(app => {
+      if (!app.id_trattativa) return;
+      if (!map[app.id_trattativa]) map[app.id_trattativa] = [];
+      map[app.id_trattativa].push(app);
+    });
+    return map;
+  }, [appointments]);
+
+  const trattativeList = useMemo(() => {
+    // Helper: does at least one appointment for this trattativa match the filters?
+    function matchesFilters(apps) {
+      // "App da verificare" special logic
+      if (dateFilter === "da_verificare") {
+        const now = new Date();
+        // At least one past appointment
+        const hasPast = apps.some(a => a.data && new Date(a.data) < now);
+        // No future appointments
+        const hasFuture = apps.some(a => a.data && new Date(a.data) >= now);
+        return hasPast && !hasFuture;
+      }
+
+      // Standard logic: at least one appointment matches all filters
+      return apps.some(a => {
+        // Industry filter
+        if (filter && filter !== "tutti" && a.cliente_settore !== filter) return false;
+        // Company filter
+        if (selectedCompany && selectedCompany !== "tutti" && a.denominazione_cliente !== selectedCompany) return false;
+        // Business unit filter
+        if (selectedBusinessUnit && selectedBusinessUnit !== "tutti") {
+          const sdgsInBU = sdgList.filter(sdg => sdg.business_unit === selectedBusinessUnit).map(sdg => sdg.id);
+          const appSdgs = appointmentSdgGroup.filter(row => row.id_appuntamento === a.id).map(row => row.id_sdg);
+          if (!appSdgs.some(id => sdgsInBU.includes(id))) return false;
+        }
+        // SDG filter
+        if (selectedSDG && selectedSDG !== "tutti") {
+          const appSdgs = getSdgsForAppointment(a.id);
+          if (!appSdgs.includes(selectedSDG)) return false;
+        }
+        // Date filter
+        if (dateFilter && dateFilter !== "tutti") {
+          const now = new Date();
+          if (!a.data) return false;
+          const appDate = new Date(a.data);
+          if (dateFilter === "programmati" && appDate < now) return false;
+          if (dateFilter === "passati" && appDate >= now) return false;
+        }
+        return true;
+      });
+    }
+
+    // Build trattative list with logo and most recent appointment date
+    const list = trattative
+      .map(t => {
+        const cliente = companies.find(c => c.id === t.id_cliente) || {};
+        let logo = "";
+        if (cliente.sito_web) {
+          const domain = cliente.sito_web.replace(/^https?:\/\//, "");
+          logo = `https://logo.clearbit.com/${domain}`;
+        }
+        const apps = trattativeMap[t.id] || [];
+        const mostRecentDate = apps.length
+          ? apps
+              .map(a => a.data)
+              .filter(Boolean)
+              .sort((a, b) => new Date(b) - new Date(a))[0]
+          : null;
+        return {
+          id: t.id,
+          denominazione_cliente: cliente.denominazione_cliente,
+          logo,
+          settore_cliente: cliente.settore,
+          status: t.status,
+          denominazione: t.denominazione,
+          struttura: t.struttura,
+          note: t.note,
+          mostRecentDate,
+          appointments: apps,
+        };
+      })
+      // Only keep trattative with at least one appointment matching the filters
+      .filter(trattativa => matchesFilters(trattativa.appointments))
+      // Sort by most recent appointment date DESC
+      .sort((a, b) => {
+        if (!a.mostRecentDate && !b.mostRecentDate) return 0;
+        if (!a.mostRecentDate) return 1;
+        if (!b.mostRecentDate) return -1;
+        return new Date(b.mostRecentDate) - new Date(a.mostRecentDate);
+      });
+
+    return list;
+  }, [
+    trattative,
+    companies,
+    trattativeMap,
+    filter,
+    selectedCompany,
+    selectedBusinessUnit,
+    selectedSDG,
+    dateFilter,
+    sdgList,
+    appointmentSdgGroup,
+    appointments,
+  ]);
+
+  // Add this utility function near the top of your component (before return)
+  function cleanCompanyName(name) {
+    if (!name) return "";
+    const patterns = [
+      /S\.?\s*P\.?\s*A\.?/gi,
+      /SOCIET[ÀA] PER AZIONI/gi,
+      /SOCIETA' PER AZIONI/gi,
+    ];
+    let cleaned = name;
+    patterns.forEach(pattern => {
+      cleaned = cleaned.replace(pattern, "");
+    });
+    // Remove extra spaces and trim
+    return cleaned.replace(/\s{2,}/g, " ").trim();
+  }
+
   return (
     <div
       className="p-8"
@@ -292,7 +418,7 @@ export default function ViewAppointments() {
         paddingTop: "100px",
       }}
     >
-      <div className="flex items-center gap-4 mb-4 flex-wrap">
+      <div className="flex items-center gap-4 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">FILTRI</h1>
         <div className={dropdownWrapperClass}>
           <span className={dropdownInnerClass}>
@@ -370,304 +496,344 @@ export default function ViewAppointments() {
         </div>
       </div>
       <div className="flex-1 min-h-0" style={{ height: "90%", overflowY: "auto" }}>
-        <table
-          className="w-full min-w-max text-left text-slate-800"
-          style={{ tableLayout: "fixed" }}
-        >
-          <thead>
-            <tr
-              className="text-slate-500 border-b border-slate-300 text-white sticky top-0 z-10"
-              style={{
-                background: "linear-gradient(135deg, #2A66DD 0%, #1DC8DF 100%)"
-              }}
-            >
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Cliente</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Esito</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Referente Alten</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Referente Azienda</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Struttura</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Data</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Format</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Referente SDG</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">To Do</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Next Steps</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Note</p>
-              </th>
-              <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
-                <p className="text-xl leading-none font-semi-bold">Azioni</p>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedAppointments.map((a, idx) => {
-              const clienteName = a.denominazione_cliente || "";
-              if (clienteName !== lastCliente) {
-                isGrey = !isGrey;
-                lastCliente = clienteName;
-              }
-              const rowBg = isGrey ? "bg-gray-100" : "bg-white";
-              const showCliente = idx === 0 || clienteName !== (sortedAppointments[idx - 1]?.denominazione_cliente || "");
-              const isEditing = editId === a.id;
-              return (
-                <tr key={a.id} className={`${rowBg} hover:bg-blue-50`}>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {showCliente ? <p className="text-sm font-bold">{clienteName}</p> : null}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <select
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.esito || ""}
-                        onChange={e => handleChange("esito", e.target.value)}
+        <div className="mt-4">
+          <table
+            className="w-full min-w-max text-left text-slate-800"
+            style={{ tableLayout: "fixed" }}
+          >
+            <thead>
+              <tr
+                className="text-slate-500 border-b border-slate-300 text-white sticky top-0 z-10"
+                style={{
+                  background: "linear-gradient(135deg, #2A66DD 0%, #1DC8DF 100%)"
+                }}
+              >
+                <th className="p-4 bg-transparent" style={{ minWidth: "200px" }}>
+                  <p className="text-xl leading-none font-semi-bold">Cliente</p>
+                </th>
+                <th className="p-4 bg-transparent" style={{ width: "100px" }}>
+                  <p className="text-xl leading-none font-semi-bold">Settore</p>
+                </th>
+                <th className="p-4 bg-transparent" style={{ width: "100px" }}>
+                  <p className="text-xl leading-none font-semi-bold">Status</p>
+                </th>
+                <th className="p-4 bg-transparent" style={{ minWidth: "200px" }}>
+                  <p className="text-xl leading-none font-semi-bold">Iniziativa</p>
+                </th>
+                <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
+                  <p className="text-xl leading-none font-semi-bold">Struttura</p>
+                </th>
+                <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
+                  <p className="text-xl leading-none font-semi-bold">Note</p>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {trattativeList.map((trattativa, idx) => (
+                <React.Fragment key={trattativa.id}>
+                  <tr
+                    className={idx % 2 === 0 ? "bg-white hover:bg-blue-50" : "bg-gray-100 hover:bg-blue-50"}
+                  >
+                    <td className="p-4" style={{ minWidth: '200px' }}>
+                      <button
+                        onClick={() => toggleExpand(trattativa.id)}
+                        className="mr-2 focus:outline-none"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          verticalAlign: "middle",
+                          cursor: "pointer"
+                        }}
+                        aria-label={expanded[trattativa.id] ? "Chiudi dettagli" : "Espandi dettagli"}
                       >
-                        <option value="to start">to start</option>
-                        <option value="ongoing">ongoing</option>
-                        <option value="closed">closed</option>
-                      </select>
-                    ) : (
+                        {/* Chevron arrow */}
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          style={{
+                            display: "inline",
+                            verticalAlign: "middle",
+                            transition: "transform 0.2s",
+                            transform: expanded[trattativa.id] ? "rotate(90deg)" : "rotate(0deg)",
+                            color: "#2A66DD"
+                          }}
+                          fill="none"
+                          stroke="#23272f"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="9 6 15 12 9 18" />
+                        </svg>
+                      </button>
+                      {trattativa.logo ? (
+                        <img
+                          src={trattativa.logo}
+                          alt="logo"
+                          className="w-8 h-8 rounded-full bg-white object-contain border border-gray-200 inline-block mr-2 align-middle"
+                          style={{ minWidth: 32, minHeight: 32 }}
+                          onError={e => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <span
+                          className="w-8 h-8 rounded-full bg-white inline-block mr-2 align-middle"
+                          style={{ minWidth: 32, minHeight: 32 }}
+                        />
+                      )}
+                      <span className="text-sm font-bold align-middle">
+                        {cleanCompanyName(trattativa.denominazione_cliente)}
+                      </span>
+                    </td>
+                    <td className="p-4" style={{ minWidth: columnMinWidth }}>
+                      <span className="text-sm">{trattativa.settore_cliente}</span>
+                    </td>
+                    <td className="p-4" style={{ width: "100px" }}>
                       <span
                         className={
                           "px-3 py-1 rounded-full text-xs font-semibold " +
-                          (a.esito === "ongoing"
+                          (trattativa.status === "ongoing"
                             ? "bg-green-100 text-green-800"
-                            : a.esito === "to start"
-                              ? "bg-blue-100 text-blue-800"
-                              : a.esito === "closed"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800")
+                            : trattativa.status === "to start"
+                            ? "bg-blue-100 text-blue-800"
+                            : trattativa.status === "closed"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800")
                         }
                       >
-                        {a.esito}
+                        {trattativa.status}
                       </span>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <select
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.referente_alten || ""}
-                        onChange={e => handleChange("referente_alten", e.target.value)}
-                      >
-                        <option value="">Seleziona referente Alten</option>
-                        {altenList.map(alten => (
-                          <option key={alten.id} value={alten.nominativo}>
-                            {alten.nominativo}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-sm">{a.referente_alten}</p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    <div className="flex flex-wrap gap-1">
-                      {getKeyPeopleForAppointment(a.id).map((person, idx) => (
-                        <Link
-                          key={idx}
-                          to={`/key-people?search=${encodeURIComponent(person)}`}
-                          className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full border border-blue-300 hover:bg-blue-200 cursor-pointer"
-                          style={{ textDecoration: "none" }}
-                          title={`Vai a Key People: ${person}`}
+                    </td>
+                    <td className="p-4" style={{ minWidth: "180px" }}>
+                      <span className="text-sm">{trattativa.denominazione}</span>
+                    </td>
+                    <td className="p-4" style={{ minWidth: columnMinWidth }}>
+                      <span className="text-sm">{trattativa.struttura}</span>
+                    </td>
+                    {/* --- ONLY ONE NOTE COLUMN, EDITABLE --- */}
+                    <td className="p-4" style={{ minWidth: columnMinWidth }}>
+                      {editId === trattativa.id ? (
+                        <input
+                          type="text"
+                          className="w-full border rounded px-2 py-1"
+                          value={editData.note || ""}
+                          onChange={e => handleChange("note", e.target.value)}
+                          onBlur={() => handleSave(trattativa.id)}
+                          autoFocus
+                          placeholder="Aggiungi una nota..."
+                        />
+                      ) : (
+                        <span
+                          className={`text-sm whitespace-pre-line cursor-pointer ${!trattativa.note ? "text-gray-400 italic" : ""}`}
+                          onClick={() => {
+                            setEditId(trattativa.id);
+                            setEditData({ note: trattativa.note || "" });
+                          }}
+                          title="Clicca per modificare"
                         >
-                          {person}
-                        </Link>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <input
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.struttura || ""}
-                        onChange={e => handleChange("struttura", e.target.value)}
-                      />
-                    ) : (
-                      <p className="text-sm">
-                        {a.struttura && a.struttura.trim() !== ""
-                          ? a.struttura
-                          : (() => {
-                              const ruoli = getRuoliForAppointment(a.id);
-                              return ruoli.length > 0 ? ruoli.join(", ") : "";
-                            })()
-                        }
-                      </p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <input
-                        type="date"
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.data || ""}
-                        onChange={e => handleChange("data", e.target.value)}
-                      />
-                    ) : (
-                      <p className="text-sm">
-                        {a.data
-                          ? new Date(a.data).toLocaleString("it-IT", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric"
-                            })
-                          : ""}
-                      </p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <input
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.format || ""}
-                        onChange={e => handleChange("format", e.target.value)}
-                      />
-                    ) : (
-                      <p className="text-sm">{a.format}</p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <Select
-                        isMulti
-                        options={sdgOptions}
-                        value={sdgOptions.filter(opt =>
-                          appointmentSdgGroup
-                            .filter(row => row.id_appuntamento === a.id)
-                            .map(row => row.id_sdg)
-                            .includes(opt.value)
-                        )}
-                        onChange={async selected => {
-                          const selectedIds = selected ? selected.map(opt => opt.value) : [];
-                          const currentIds = appointmentSdgGroup
-                            .filter(row => row.id_appuntamento === a.id)
-                            .map(row => row.id_sdg);
-
-                          for (const id of selectedIds) {
-                            if (!currentIds.includes(id)) {
-                              await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  Authorization: "Bearer " + localStorage.getItem("token"),
-                                },
-                                body: JSON.stringify({
-                                  id_appuntamento: a.id,
-                                  id_sdg: id,
-                                }),
-                              });
-                            }
-                          }
-                          fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
-                            headers: {
-                              Authorization: "Bearer " + localStorage.getItem("token"),
-                            },
-                          })
-                            .then(res => res.json())
-                            .then(setAppointmentSdgGroup);
-                        }}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                        placeholder="Seleziona referente SDG..."
-                      />
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {getSdgsForAppointment(a.id).map((sdg, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full border border-blue-300"
-                          >
-                            {sdg}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <input
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.to_do || ""}
-                        onChange={e => handleChange("to_do", e.target.value)}
-                      />
-                    ) : (
-                      <p className="text-sm whitespace-pre-line">{a.to_do}</p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <input
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.next_steps || ""}
-                        onChange={e => handleChange("next_steps", e.target.value)}
-                      />
-                    ) : (
-                      <p className="text-sm whitespace-pre-line">{a.next_steps}</p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <input
-                        className="border rounded px-2 py-1 w-full"
-                        value={editData.note || ""}
-                        onChange={e => handleChange("note", e.target.value)}
-                      />
-                    ) : (
-                      <p className="text-sm whitespace-pre-line">{a.note}</p>
-                    )}
-                  </td>
-                  <td className="p-4" style={{ minWidth: columnMinWidth }}>
-                    {isEditing ? (
-                      <>
-                        <button
-                          className="text-primary mr-2 cursor-pointer text-2xl align-middle"
-                          onClick={() => handleSave(a.id)}
-                          title="Salva"
-                        >
-                          <FaSave />
-                        </button>
-                        <button
-                          className="text-red-500 cursor-pointer text-2xl align-middle"
-                          onClick={handleCancel}
-                          title="Annulla"
-                        >
-                          <FaTimes />
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className="text-primary mr-2 cursor-pointer text-2xl align-middle"
-                        onClick={() => handleEdit(a)}
-                        title="Modifica"
-                      >
-                        <FaEdit />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                          {trattativa.note || "Aggiungi una nota..."}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  {expanded[trattativa.id] && (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <div style={{ width: "100%", overflowX: "auto" }}>
+                          <table className="w-full text-left" style={{ background: "#23272f", tableLayout: "fixed" }}>
+                            <thead>
+                              <tr style={{ background: "#23272f" }}>
+                                <th className="p-4" style={{ color: "#fff" }}>Data</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Esito</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Format</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Referente Azienda</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Referente SDG</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Referente Alten</th>
+                                <th className="p-4" style={{ color: "#fff" }}>To Do</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Next Steps</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Note</th>
+                                <th className="p-4" style={{ color: "#fff" }}>Azioni</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(trattativeMap[trattativa.id] || []).map(app => (
+                                <tr key={app.id} className="hover:bg-slate-700">
+                                  {editId === app.id ? (
+                                    <>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="date"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.data ? editData.data.slice(0, 10) : ""}
+                                          onChange={e => handleChange("data", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <select
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.esito || ""}
+                                          onChange={e => handleChange("esito", e.target.value)}
+                                        >
+                                          <option value="">Seleziona</option>
+                                          <option value="ongoing">Ongoing</option>
+                                          <option value="to start">To Start</option>
+                                          <option value="closed">Closed</option>
+                                        </select>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.format || ""}
+                                          onChange={e => handleChange("format", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.referente_azienda || ""}
+                                          onChange={e => handleChange("referente_azienda", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.referente_sdg || ""}
+                                          onChange={e => handleChange("referente_sdg", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.referente_alten || ""}
+                                          onChange={e => handleChange("referente_alten", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.to_do || ""}
+                                          onChange={e => handleChange("to_do", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.next_steps || ""}
+                                          onChange={e => handleChange("next_steps", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <input
+                                          type="text"
+                                          className="w-full border rounded px-2 py-1 text-black"
+                                          value={editData.note || ""}
+                                          onChange={e => handleChange("note", e.target.value)}
+                                        />
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <button
+                                          className="mr-2 text-green-400 cursor-pointer"
+                                          onClick={() => handleSaveAppointment(app.id)}
+                                          title="Salva"
+                                        >
+                                          <FaSave />
+                                        </button>
+                                        <button
+                                          className="text-red-400 cursor-pointer"
+                                          onClick={handleCancel}
+                                          title="Annulla"
+                                        >
+                                          <FaTimes />
+                                        </button>
+                                      </td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm">
+                                          {app.data
+                                            ? new Date(app.data).toLocaleDateString("it-IT", {
+                                                day: "2-digit",
+                                                month: "2-digit",
+                                                year: "numeric"
+                                              })
+                                            : ""}
+                                        </span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span
+                                          className={
+                                            "px-3 py-1 rounded-full text-xs font-semibold " +
+                                            (app.esito === "ongoing"
+                                              ? "bg-green-100 text-green-800"
+                                              : app.esito === "to start"
+                                              ? "bg-blue-100 text-blue-800"
+                                              : app.esito === "closed"
+                                              ? "bg-red-100 text-red-800"
+                                              : "bg-gray-100 text-gray-800")
+                                        }
+                                        >
+                                          {app.esito}
+                                        </span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm">{app.format}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm">{app.referente_azienda}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm">{app.referente_sdg}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm">{app.referente_alten}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm whitespace-pre-line">{app.to_do}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm whitespace-pre-line">{app.next_steps}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <span className="text-sm whitespace-pre-line">{app.note}</span>
+                                      </td>
+                                      <td className="p-4" style={{ color: "#fff" }}>
+                                        <button
+                                          className="mr-2 text-blue-400 cursor-pointer"
+                                          onClick={() => {
+                                            setEditId(app.id);
+                                            setEditData({ ...app });
+                                          }}
+                                          title="Modifica"
+                                        >
+                                          <FaEdit />
+                                        </button>
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

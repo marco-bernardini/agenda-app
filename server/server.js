@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
 import appointmentRoutes from "./routes/appuntamenti.js";
 import clientiRouter from "./routes/clienti.js";
-import SDGGroupRouter from "./routes/sdg_group.js";
+import SDGGroupRouter from "./routes/SDG_group.js";
 import appuntamentiSdgGroupRouter from "./routes/appuntamenti_SDG_group.js";
 import altenRouter from "./routes/alten.js";
 import appuntamentiAltenRouter from "./routes/appuntamenti_alten.js";

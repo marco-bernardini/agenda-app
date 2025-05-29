@@ -12,6 +12,7 @@ router.get("/", async (req, res) => {
     const { rows } = await pool.query("SELECT * FROM appuntamenti_alten");
     res.json(rows);
   } catch (err) {
+    console.error("Insert error:", err);
     res.status(500).json({ error: "Errore nel recupero dei dati appuntamenti_alten." });
   }
 });
@@ -19,10 +20,17 @@ router.get("/", async (req, res) => {
 // Add a link
 router.post("/", async (req, res) => {
   const { id_appuntamento, id_alten } = req.body;
+  console.log("POST /appuntamenti-alten", { id_appuntamento, id_alten }); // Add this line
   if (!id_appuntamento || !id_alten) {
     return res.status(400).json({ error: "id_appuntamento e id_alten sono obbligatori." });
   }
   try {
+    // Remove any existing link for this appointment
+    await pool.query(
+      "DELETE FROM appuntamenti_alten WHERE id_appuntamento = $1",
+      [id_appuntamento]
+    );
+    // Insert the new link
     await pool.query(
       "INSERT INTO appuntamenti_alten (id_appuntamento, id_alten) VALUES ($1, $2)",
       [id_appuntamento, id_alten]
@@ -38,6 +46,7 @@ router.post("/", async (req, res) => {
 router.delete("/", async (req, res) => {
   const { id_appuntamento, id_alten } = req.body;
   if (!id_appuntamento || !id_alten) {
+    console.error("Insert error:", err);
     return res.status(400).json({ error: "id_appuntamento e id_alten sono obbligatori." });
   }
   try {
@@ -47,6 +56,7 @@ router.delete("/", async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
+    console.error("Insert error:", err);
     res.status(500).json({ error: "Errore nella rimozione del collegamento." });
   }
 });

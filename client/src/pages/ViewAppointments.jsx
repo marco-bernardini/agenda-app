@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import abstractBg from "/Abstract.jpg";
 import Select from "react-select";
 import React from "react";
+import { DateTime } from "luxon";
 
 export default function ViewAppointments() {
   const navigate = useNavigate();
@@ -299,47 +300,130 @@ export default function ViewAppointments() {
 
   // For appointments
   const handleSaveAppointment = async (id) => {
-    // Only update note for trattativa
-    await fetch(`${import.meta.env.VITE_API_URL}/trattative/${id}/note`, {
-      method: "PATCH",
+    // 1. Update the appointment fields (format, note, etc.)
+    const appointmentPayload = {
+      esito: editData.esito,
+      // Always send YYYY-MM-DD, never a Date object or ISO string
+      data: editData.data
+        ? editData.data.length > 10
+          ? editData.data.slice(0, 10)
+          : editData.data
+        : null,
+      format: editData.format,
+      to_do: editData.to_do,
+      next_steps: editData.next_steps,
+      note: editData.note,
+    };
+    console.log("PUT /appuntamenti/" + id, appointmentPayload);
+    await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti/${id}`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + localStorage.getItem("token"),
       },
-      body: JSON.stringify({ note: editData.note }),
+      body: JSON.stringify(appointmentPayload),
     });
 
-    // 1. Remove all old SDG relations for this appointment
+    // 1b. Update referente_alten if changed and not empty
+    if (editData.referente_alten) {
+      const id_alten = altenList.find(a => a.nominativo === editData.referente_alten)?.id;
+      const altenPayload = {
+        id_appuntamento: id,
+        id_alten: id_alten,
+      };
+      console.log("POST /appuntamenti-alten", altenPayload);
+      await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-alten`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+        body: JSON.stringify(altenPayload),
+      });
+    }
+
+    // 2. Remove all old SDG relations for this appointment
     const oldLinks = appointmentSdgGroup.filter(row => row.id_appuntamento === id);
     for (const link of oldLinks) {
+      const deletePayload = { id_appuntamento: id, id_sdg: link.id_sdg };
+      console.log("DELETE /appuntamenti-sdg-group", deletePayload);
       await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
-        body: JSON.stringify({ id_appuntamento: id, id_sdg: link.id_sdg }),
+        body: JSON.stringify(deletePayload),
       });
     }
 
-    // 2. Add new SDG relations (for each selected SDG)
+    // 3. Add new SDG relations (for each selected SDG)
     const selectedSdgs = sdgList.filter(sdg =>
       (editData.referente_sdg || []).includes(sdg.id)
     );
     for (const sdg of selectedSdgs) {
+      const postPayload = { id_appuntamento: id, id_sdg: sdg.id };
+      console.log("POST /appuntamenti-sdg-group", postPayload);
       await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
-        body: JSON.stringify({ id_appuntamento: id, id_sdg: sdg.id }),
+        body: JSON.stringify(postPayload),
       });
+    }
+
+    // 1c. Update key people for this appointment
+    // Remove all old key people links for this appointment
+    const oldKeyPeopleLinks = appointmentKeyPeople.filter(row => row.id_appuntamento === id);
+    for (const link of oldKeyPeopleLinks) {
+      const deletePayload = { id_appuntamento: id, id_person: link.id_person };
+      await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-key-people`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
+        },
+        body: JSON.stringify(deletePayload),
+      });
+    }
+
+    // Add the new key person if selected
+    if (editData.referente_azienda) {
+      // Find the key person by nome+cognome
+      const kp = keyPeople.find(
+        k =>
+          `${k.nome} ${k.cognome}` === editData.referente_azienda &&
+          (k.id_cliente === (editData.id_cliente || editData.cliente_id))
+      );
+      if (kp) {
+        const postPayload = { id_appuntamento: id, id_person: kp.id };
+        await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-key-people`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          body: JSON.stringify(postPayload),
+        });
+      }
     }
 
     setEditAppointmentId(null);
     setEditData({});
-    // Optionally refresh data here
+    // Refresh appointments and joins after save
+    await Promise.all([
+      fetch(`${import.meta.env.VITE_API_URL}/appuntamenti?withDetails=1`, {
+        headers: { Authorization: "Bearer " + localStorage.getItem("token") }
+      }).then(res => res.json()).then(setAppointments),
+      fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-alten`, {
+        headers: { Authorization: "Bearer " + localStorage.getItem("token") }
+      }).then(res => res.json()).then(/* update your local state if needed */),
+      fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
+        headers: { Authorization: "Bearer " + localStorage.getItem("token") }
+      }).then(res => res.json()).then(setAppointmentSdgGroup),
+    ]);
   };
 
   const toggleExpand = (id) => {
@@ -797,7 +881,7 @@ export default function ViewAppointments() {
                           <table className="w-full text-left" style={{ background: "#23272f", tableLayout: "fixed" }}>
                             <thead>
                               <tr style={{ background: "#23272f" }}>
-                                <th className="p-4" style={{ color: "#fff", width: "80px" }}>Data</th>
+                                <th className="p-4" style={{ color: "#fff", width: "120px" }}>Data</th>
                                 <th className="p-4" style={{ color: "#fff", width: "100px" }}>Esito</th>
                                 <th className="p-4" style={{ color: "#fff", width: "80px" }}>Format</th>
                                 <th className="p-4" style={{ color: "#fff" }}>Referente Azienda</th>
@@ -814,12 +898,16 @@ export default function ViewAppointments() {
                                   {editAppointmentId === app.id ? (
                                     <>
                                       <td className="p-4" style={{ color: "#23272f" }}>
-                                        <input
-                                          type="date"
-                                          className="w-full border rounded px-2 py-1 text-black"
-                                          value={editData.data ? editData.data.slice(0, 10) : ""}
-                                          onChange={e => handleChange("data", e.target.value)}
-                                        />
+                                      <input
+                                        type="date"
+                                        className="w-full border rounded px-2 py-1 text-black"
+                                        value={
+                                          editData.data
+                                            ? DateTime.fromISO(editData.data, { zone: "utc" }).toFormat("yyyy-MM-dd")
+                                            : ""
+                                        }
+                                        onChange={e => handleChange("data", e.target.value)}
+                                      />
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
                                         <select
@@ -834,12 +922,16 @@ export default function ViewAppointments() {
                                         </select>
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
-                                        <input
-                                          type="text"
+                                        <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.format || ""}
                                           onChange={e => handleChange("format", e.target.value)}
-                                        />
+                                        >
+                                          <option value="">Seleziona formato</option>
+                                          <option value="Call">Call</option>
+                                          <option value="SDG">SDG</option>
+                                          <option value="Cliente">Cliente</option>
+                                        </select>
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
                                         <select
@@ -848,13 +940,17 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("referente_azienda", e.target.value)}
                                         >
                                           <option value="">Seleziona referente azienda</option>
-                                          {keyPeople
-                                            .filter(kp => kp.id_cliente === app.cliente_id)
-                                            .map(kp => (
-                                              <option key={kp.id} value={`${kp.nome} ${kp.cognome}`}>
-                                                {kp.nome} {kp.cognome}
-                                              </option>
-                                            ))}
+                                          {Array.from(
+                                          new Map(
+                                            keyPeople
+                                              .filter(kp => kp.id_cliente === (app.id_cliente || app.cliente_id))
+                                              .map(kp => [`${kp.nome} ${kp.cognome}`, kp])
+                                          ).values()
+                                        ).map(kp => (
+                                          <option key={kp.id} value={`${kp.nome} ${kp.cognome}`}>
+                                            {kp.nome} {kp.cognome}
+                                          </option>
+                                        ))}
                                         </select>
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
@@ -885,12 +981,16 @@ export default function ViewAppointments() {
                                         />
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
-                                        <input
-                                          type="text"
+                                        <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.referente_alten || ""}
                                           onChange={e => handleChange("referente_alten", e.target.value)}
-                                        />
+                                        >
+                                          <option value="">Seleziona referente Alten</option>
+                                          {[...new Set(altenList.map(a => a.nominativo).filter(Boolean))].map(nominativo => (
+                                            <option key={nominativo} value={nominativo}>{nominativo}</option>
+                                          ))}
+                                        </select>
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
                                         <input
@@ -1084,9 +1184,13 @@ export default function ViewAppointments() {
                                         <button
                                           className="mr-2 text-blue-400 cursor-pointer"
                                           onClick={() => {
+                                            // When entering edit mode for an appointment
                                             setEditAppointmentId(app.id);
                                             setEditData({
                                               ...app,
+                                              data: app.data
+                                                ? DateTime.fromISO(app.data).toFormat("yyyy-MM-dd")
+                                                : "",
                                               referente_sdg: getSdgsForAppointmentIds(app.id),
                                             });
                                           }}

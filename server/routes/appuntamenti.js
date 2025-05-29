@@ -64,30 +64,28 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const {
     esito,
-    referente_alten,
-    struttura,
     data,
     format,
     to_do,
     next_steps,
-    note
+    note,
+/*     referente_alten */
   } = req.body;
   try {
     // Update main fields
     await pool.query(
       `UPDATE appuntamenti SET
         esito = $1,
-        struttura = $2,
-        data = $3,
-        format = $4,
-        to_do = $5,
-        next_steps = $6,
-        note = $7
-       WHERE id = $8`,
-      [esito, struttura, data, format, to_do, next_steps, note, req.params.id]
+        data = $2,
+        format = $3,
+        to_do = $4,
+        next_steps = $5,
+        note = $6
+       WHERE id = $7`,
+      [esito, data, format, to_do, next_steps, note, req.params.id]
     );
 
-    // Update referente_alten (in appuntamenti_alten)
+/*     // Update referente_alten (in appuntamenti_alten)
     if (referente_alten !== undefined) {
       // Get alten.id for nominativo
       const { rows: altenRows } = await pool.query(
@@ -107,7 +105,7 @@ router.put("/:id", async (req, res) => {
           [req.params.id, altenId]
         );
       }
-    }
+    } */
 
     res.json({ id: req.params.id });
   } catch (err) {

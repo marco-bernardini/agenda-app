@@ -12,6 +12,7 @@ import keyPeopleRouter from "./routes/key_people.js";
 import appuntamentiKeyPeopleRouter from "./routes/appuntamenti_key_people.js";
 import trattativeRouter from "./routes/trattative.js";
 import taskRouter from "./routes/task.js";
+import metricsRouter from "./routes/metrics.js";
 import { authLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import pool from "./models/db.js";
 
@@ -50,6 +51,7 @@ app.use("/api/key-people", keyPeopleRouter);
 app.use("/api/appuntamenti-key-people", appuntamentiKeyPeopleRouter);
 app.use("/api/trattative", trattativeRouter);
 app.use("/api/tasks", taskRouter);
+app.use("/api/metrics", metricsRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

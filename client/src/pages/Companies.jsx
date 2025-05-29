@@ -19,6 +19,8 @@ export default function Companies() {
   const [keyPeople, setKeyPeople] = useState([]);
   const tableRef = useRef();
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState({});
+  const [metrics, setMetrics] = useState({});
 
   useEffect(() => {
     // Fetch all companies
@@ -46,7 +48,16 @@ export default function Companies() {
     })
       .then(res => res.json())
       .then(setKeyPeople);
-  }, []);
+    }, []);
+
+    async function fetchMetrics(companyId) {
+      if (metrics[companyId]) return; // already fetched
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/metrics/client/${companyId}`, {
+        headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+      });
+      const data = await res.json();
+      setMetrics(m => ({ ...m, [companyId]: data }));
+    }
 
   const columnMinWidth = [
     "40px", "180px", "110px", "110px", "70px", "130px", "100px", "160px", "120px"
@@ -194,109 +205,214 @@ export default function Companies() {
               const keyPeopleForCompany = getKeyPeopleForCompany(c.id);
 
               return (
-                <tr
-                  key={c.id}
-                  className={`${rowBg} hover:bg-blue-50 relative`}
-                  onMouseEnter={e => handleRowMouseEnter(e, c.id, idx)}
-                  onMouseLeave={handleRowMouseLeave}
-                  style={{ cursor: "pointer" }}
-                >
-                  <td className="p-4 text-center align-middle">
-                    {showCompany && isSeen ? (
-                      <span title="Vista">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="inline-block"
-                          width={20}
-                          height={20}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle cx="12" cy="12" r="12" fill="#22c55e" />
-                          <path
-                            d="M8 12.5l3 3 5-5"
-                            stroke="#fff"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      {c.sito_web ? (
-                        <img
-                          src={`https://logo.clearbit.com/${c.sito_web.replace(/^https?:\/\//, "")}`}
-                          alt={c.denominazione_cliente}
-                          className="w-7 h-7 rounded-full bg-white object-contain border border-gray-200"
-                          style={{ minWidth: 28, minHeight: 28 }}
-                          onError={e => {
-                            e.target.onerror = null;
-                            e.target.style.display = 'none';
-                            const fallback = document.createElement('div');
-                            fallback.style.width = '28px';
-                            fallback.style.height = '28px';
-                            fallback.style.borderRadius = '50%';
-                            fallback.style.background = '#fff';
-                            fallback.style.display = 'inline-block';
-                            fallback.style.minWidth = '28px';
-                            fallback.style.minHeight = '28px';
-                            fallback.style.marginRight = '0.5rem';
-                            e.target.parentNode.insertBefore(fallback, e.target.nextSibling);
-                          }}
-                        />
-                      ) : (
-                        <span
-                          className="w-7 h-7 rounded-full bg-white inline-block"
-                          style={{ minWidth: 28, minHeight: 28 }}
-                        />
-                      )}
-                      {showCompany ? (
-                        <p className="text-sm font-bold">{c.denominazione_cliente}</p>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="p-4"><p className="text-sm">{c.settore}</p></td>
-                  <td className="p-4"><p className="text-sm">{c.gruppo}</p></td>
-                  <td className="p-4"><p className="text-sm">{c.ramo}</p></td>
-                  <td className="p-4"><p className="text-sm">{formatEuro(c.capitale_sociale)}</p></td>
-                  <td className="p-4"><p className="text-sm">{c.sede}</p></td>
-                  <td className="p-4">
-                    <div className="flex flex-wrap gap-2">
-                      {keyPeopleForCompany.length === 0 ? (
-                        <span className="text-gray-400 text-xs">-</span>
-                      ) : (
-                        keyPeopleForCompany.map(kp => (
-                          <span
-                            key={kp.id}
-                            className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full border border-blue-300 cursor-pointer hover:bg-blue-200"
-                            title={kp.ruolo ? kp.ruolo : undefined}
-                            onClick={() =>
-                              navigate(`/key-people?search=${encodeURIComponent(`${kp.nome} ${kp.cognome}`)}`)
-                            }
-                          >
-                            {kp.nome} {kp.cognome}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4 break-all whitespace-pre-line">
-                    {c.sito_web ? (
-                      <a
-                        href={c.sito_web}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline break-all"
-                        style={{ wordBreak: "break-all", whiteSpace: "pre-line", display: "block" }}
+                <>
+                  <tr
+                    key={c.id}
+                    className={`${rowBg} hover:bg-blue-50 relative`}
+                    onMouseEnter={e => handleRowMouseEnter(e, c.id, idx)}
+                    onMouseLeave={handleRowMouseLeave}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td className="p-4 text-center align-middle">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setExpanded(exp => ({
+                            ...exp,
+                            [c.id]: !exp[c.id]
+                          }));
+                          if (!expanded[c.id]) fetchMetrics(c.id);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          verticalAlign: "middle"
+                        }}
+                        aria-label={expanded[c.id] ? "Chiudi metriche" : "Espandi metriche"}
                       >
-                        {c.sito_web}
-                      </a>
-                    ) : ""}
-                  </td>
-                </tr>
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          style={{
+                            display: "inline",
+                            verticalAlign: "middle",
+                            transition: "transform 0.2s",
+                            transform: expanded[c.id] ? "rotate(90deg)" : "rotate(0deg)",
+                            color: "#2A66DD"
+                          }}
+                          fill="none"
+                          stroke="#23272f"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="9 6 15 12 9 18" />
+                        </svg>
+                      </button>
+                      {showCompany && isSeen ? (
+                        <span title="Vista">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="inline-block"
+                            width={20}
+                            height={20}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="12" cy="12" r="12" fill="#22c55e" />
+                            <path
+                              d="M8 12.5l3 3 5-5"
+                              stroke="#fff"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        {c.sito_web ? (
+                          <img
+                            src={`https://logo.clearbit.com/${c.sito_web.replace(/^https?:\/\//, "")}`}
+                            alt={c.denominazione_cliente}
+                            className="w-7 h-7 rounded-full bg-white object-contain border border-gray-200"
+                            style={{ minWidth: 28, minHeight: 28 }}
+                            onError={e => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                              const fallback = document.createElement('div');
+                              fallback.style.width = '28px';
+                              fallback.style.height = '28px';
+                              fallback.style.borderRadius = '50%';
+                              fallback.style.background = '#fff';
+                              fallback.style.display = 'inline-block';
+                              fallback.style.minWidth = '28px';
+                              fallback.style.minHeight = '28px';
+                              fallback.style.marginRight = '0.5rem';
+                              e.target.parentNode.insertBefore(fallback, e.target.nextSibling);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="w-7 h-7 rounded-full bg-white inline-block"
+                            style={{ minWidth: 28, minHeight: 28 }}
+                          />
+                        )}
+                        {showCompany ? (
+                          <p className="text-sm font-bold">{c.denominazione_cliente}</p>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="p-4"><p className="text-sm">{c.settore}</p></td>
+                    <td className="p-4"><p className="text-sm">{c.gruppo}</p></td>
+                    <td className="p-4"><p className="text-sm">{c.ramo}</p></td>
+                    <td className="p-4"><p className="text-sm">{formatEuro(c.capitale_sociale)}</p></td>
+                    <td className="p-4"><p className="text-sm">{c.sede}</p></td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-2">
+                        {keyPeopleForCompany.length === 0 ? (
+                          <span className="text-gray-400 text-xs">-</span>
+                        ) : (
+                          keyPeopleForCompany.map(kp => (
+                            <span
+                              key={kp.id}
+                              className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full border border-blue-300 cursor-pointer hover:bg-blue-200"
+                              title={kp.ruolo ? kp.ruolo : undefined}
+                              onClick={() =>
+                                navigate(`/key-people?search=${encodeURIComponent(`${kp.nome} ${kp.cognome}`)}`)
+                              }
+                            >
+                              {kp.nome} {kp.cognome}
+                            </span>
+                          )))
+                        }
+                      </div>
+                    </td>
+                    <td className="p-4 break-all whitespace-pre-line">
+                      {c.sito_web ? (
+                        <a
+                          href={c.sito_web}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline break-all"
+                          style={{ wordBreak: "break-all", whiteSpace: "pre-line", display: "block" }}
+                        >
+                          {c.sito_web}
+                        </a>
+                      ) : ""}
+                    </td>
+                  </tr>
+                  {expanded[c.id] && (
+                    <tr>
+                      <td colSpan={columnMinWidth.length} className="p-0">
+                        <div
+                          style={{
+                            background: "#23272f",
+                            color: "#fff",
+                            borderRadius: "0 0 12px 12px",
+                            padding: "24px 32px",
+                            marginTop: "-2px",
+                            fontFamily: "monospace",
+                            fontSize: "1.05em",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+                          }}
+                        >
+                          <strong style={{ color: "#38bdf8", fontSize: "1.1em", letterSpacing: 1 }}>Dati di bilancio:</strong>
+                          <div style={{
+                            marginTop: 12,
+                            background: "rgba(255,255,255,0.06)",
+                            borderRadius: 8,
+                            padding: "16px 20px",
+                            overflowX: "auto",
+                            color: "#fff",
+                            fontWeight: 400,
+                            lineHeight: 1.6,
+                            wordBreak: "break-word"
+                          }}>
+                            {metrics[c.id] && metrics[c.id].length > 0 ? (
+                              metrics[c.id].map((m, i) => (
+                                <div key={m.id || i} style={{ marginBottom: 24 }}>
+                                  <div style={{ fontWeight: 600, color: "#a5f3fc", marginBottom: 8 }}>
+                                    {m.year ? `Anno: ${m.year}` : ""}
+                                  </div>
+                                  <table style={{ width: "100%", color: "#fff", borderCollapse: "collapse", marginBottom: 8 }}>
+                                    <tbody>
+                                      {m.data && typeof m.data === "object"
+                                        ? Object.entries(m.data).map(([key, value]) => (
+                                            <tr key={key} style={{ borderBottom: "1px solid #334155" }}>
+                                              <td style={{ padding: "4px 4px", fontWeight: 500, color: "#38bdf8", textAlign: "left", width: "400px" }}>
+                                                {key.replace(/_/g, " ")}
+                                              </td>
+                                              <td style={{ padding: "4px 4px", textAlign: "left" }}>
+                                                {value !== undefined && value !== null && value !== "" ? value : "-"}
+                                              </td>
+                                            </tr>
+                                          ))
+                                        : (
+                                          <tr>
+                                            <td style={{ padding: "4px 4px", fontWeight: 500, color: "#38bdf8", textAlign: "left", width: "220px" }}>Valore</td>
+                                            <td style={{ padding: "4px 4px", textAlign: "left" }}>{m.data}</td>
+                                          </tr>
+                                        )
+                                      }
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ))
+                            ) : (
+                              <span style={{ color: "#fff" }}>Nessun dato disponibile.</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               );
             })}
           </tbody>

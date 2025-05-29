@@ -7,6 +7,8 @@ export default function Dashboard() {
   const [appuntamenti, setAppuntamenti] = useState([]);
   const [sdgList, setSdgList] = useState([]);
   const [appuntamentiSdgGroup, setAppuntamentiSdgGroup] = useState([]);
+  // Add state for tasks
+  const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/clienti`, {
@@ -32,6 +34,13 @@ export default function Dashboard() {
     })
       .then(res => res.json())
       .then(setAppuntamentiSdgGroup);
+
+    // Fetch tasks in useEffect
+    fetch(`${import.meta.env.VITE_API_URL}/tasks`, {
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    })
+      .then(res => res.json())
+      .then(setTasks);
   }, []);
 
   // Card 1: # Banking clienti with at least one ongoing or to start appuntamenti
@@ -96,23 +105,10 @@ export default function Dashboard() {
     return appuntamenti.filter(a => a.data && new Date(a.data) > now).length;
   }, [appuntamenti]);
 
-  // Card 4: # of appuntamenti to review (same logic as "da_verificare" in Viewappuntamenti)
+  // Card 4: # of incomplete tasks
   const toReviewCount = useMemo(() => {
-    const now = new Date();
-    return appuntamenti.filter(a => {
-      if (!a.data) return false;
-      const appDate = new Date(a.data);
-      if (!(appDate < now)) return false;
-      if (!a.next_steps || a.next_steps.trim() === "") return false;
-      if (a.esito === "closed") return false;
-      // No future appuntamenti for same company
-      const hasFuture = appuntamenti.some(
-        b => b.id_cliente === a.id_cliente && b.data && new Date(b.data) > appDate
-      );
-      if (hasFuture) return false;
-      return true;
-    }).length;
-  }, [appuntamenti]);
+    return tasks.filter(t => t.status === false).length;
+  }, [tasks]);
 
   // Chart 1: appuntamenti per SDG Business Unit (horizontal bar)
   const appuntamentiPerBU = useMemo(() => {
@@ -152,24 +148,24 @@ export default function Dashboard() {
       }}
     >
       {/* Top 4 cards */}
-      <div className="w-full flex flex-wrap justify-center gap-6 mb-12">
+      <div className="w-full flex flex-wrap justify-center gap-4 bg-white/70 rounded-xl p-4">
         {[{
-          title: "Banking clienti (active)",
+          title: "Azioni attive banking",
           value: bankingClientiCount
         }, {
-          title: "Insurance clienti (active)",
+          title: "Azioni attive insurance",
           value: insuranceClientiCount,
           indicator: insuranceSeenPercent
         }, {
-          title: "Future appuntamenti",
+          title: "Appuntamenti futuri",
           value: futureAppuntamentiCount
         }, {
-          title: "Appuntamenti to Review",
+          title: "Task da completare",
           value: toReviewCount
         }].map((card, i) => (
           <div
             key={i}
-            className="bg-gray-100 rounded-lg shadow p-8 flex flex-col items-center justify-center min-h-[180px] w-[22vw]"
+            className="bg-gray-100 rounded-xl shadow-lg p-8 flex flex-col items-center justify-center min-h-[180px] w-[22vw] transition-all hover:scale-105"
           >
             <div className="text-lg font-semibold text-blue-900 mb-2 text-center">{card.title}</div>
             <div className="text-4xl font-bold text-blue-700 text-center">{card.value}</div>
@@ -182,7 +178,7 @@ export default function Dashboard() {
         ))}
       </div>
       {/* Bottom 3 charts */}
-      <div className="w-full flex flex-wrap justify-center gap-6">
+      <div className="w-full flex flex-wrap justify-center gap-4">
         {/* Chart 1: Horizontal Bar Chart */}
         <div className="bg-gray-100 rounded-lg shadow p-8 flex flex-col items-center min-h-[400px] w-[30vw]">
           <div className="text-lg font-semibold text-blue-900 mb-4 text-center">

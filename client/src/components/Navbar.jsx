@@ -65,7 +65,7 @@ export default function Navbar({ onLogout }) {
             fontWeight: "bold",
           }}
         >
-          Compagnie
+          Clienti
         </Link>
         <Link
           to="/key-people"

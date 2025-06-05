@@ -95,12 +95,14 @@ export default function InsertInitiative() {
           className="border border-gray-300 rounded-lg px-4 py-2"
           required
         >
-          <option value="">Seleziona compagnia</option>
-          {companies.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.denominazione_cliente}
-            </option>
-          ))}
+          <option value="">Seleziona cliente</option>
+          {[...companies]
+            .sort((a, b) => a.denominazione_cliente.localeCompare(b.denominazione_cliente))
+            .map(c => (
+              <option key={c.id} value={c.id}>
+                {c.denominazione_cliente}
+              </option>
+            ))}
         </select>
         <input
           name="status"

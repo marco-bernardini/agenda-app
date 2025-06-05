@@ -257,7 +257,7 @@ export default function InsertAppointment() {
               required
             >
               <option value="">Seleziona cliente</option>
-              {uniqueClienti.map(denominazioneCliente => (
+              {[...uniqueClienti].sort((a, b) => a.localeCompare(b)).map(denominazioneCliente => (
                 <option key={denominazioneCliente} value={denominazioneCliente}>
                   {denominazioneCliente}
                 </option>

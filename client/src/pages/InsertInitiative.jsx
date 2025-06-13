@@ -8,6 +8,7 @@ export default function InsertInitiative() {
     status: "",
     struttura: "",
     note: "",
+    owner: "", // add this
   });
   const [companies, setCompanies] = useState([]);
   const [message, setMessage] = useState("");
@@ -53,6 +54,7 @@ export default function InsertInitiative() {
             status: "",
             struttura: "",
             note: "",
+            owner: "",
           });
         } else {
           setMessage(data.error || "Errore");
@@ -78,7 +80,7 @@ export default function InsertInitiative() {
         onSubmit={handleSubmit}
         className="bg-white shadow-xl rounded-xl p-8 w-full max-w-md flex flex-col gap-4"
       >
-        <h1 className="text-2xl font-bold mb-4 text-gray-900">Inserisci Trattativa</h1>
+        <h1 className="text-2xl font-bold mb-4 text-gray-900">Inserisci Iniziativa</h1>
         {message && <div className="mb-2 text-center text-blue-700">{message}</div>}
         <input
           name="denominazione"
@@ -104,14 +106,19 @@ export default function InsertInitiative() {
               </option>
             ))}
         </select>
-        <input
+        <select
           name="status"
           value={form.status}
           onChange={handleChange}
-          placeholder="Status"
           className="border border-gray-300 rounded-lg px-4 py-2"
           required
-        />
+        >
+          <option value="">Seleziona status</option>
+          <option value="to start">To Start</option>
+          <option value="ongoing">Ongoing</option>
+          <option value="on hold">On Hold</option>
+          <option value="closed">Closed</option>
+        </select>
         <input
           name="struttura"
           value={form.struttura}
@@ -120,6 +127,17 @@ export default function InsertInitiative() {
           className="border border-gray-300 rounded-lg px-4 py-2"
           required
         />
+        <select
+          name="owner"
+          value={form.owner || ""}
+          onChange={handleChange}
+          className="border border-gray-300 rounded-lg px-4 py-2"
+          required
+        >
+          <option value="">Seleziona owner</option>
+          <option value="Alten">Alten</option>
+          <option value="SDG">SDG</option>
+        </select>
         <textarea
           name="note"
           value={form.note}

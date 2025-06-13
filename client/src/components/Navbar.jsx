@@ -161,7 +161,7 @@ export default function Navbar({ onLogout }) {
                   fontSize: "1.1rem",
                 }}
               >
-                Trattativa
+                Iniziativa
               </Link>
             </div>
           )}

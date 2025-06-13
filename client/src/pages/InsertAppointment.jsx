@@ -273,9 +273,12 @@ export default function InsertAppointment() {
               onChange={handleChange}
               className={`border border-gray-300 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 ${statusColor}`}
             >
-              <option value="to start">To Start</option>
-              <option value="ongoing">Ongoing</option>
-              <option value="closed">Closed</option>
+              <option value="da fare">Da Fare</option>
+              <option value="attesa feedback">Attesa Feedback</option>
+              <option value="ritorno">Ritorno</option>              
+              <option value="risentire">Risentire</option>
+              <option value="progetto">Progetto</option>
+              <option value="negativo">Negativo</option>
             </select>
           </div>
           <div>

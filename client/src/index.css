@@ -13,6 +13,11 @@ select option {
   color: #fff;
 }
 
+.chart-z-low svg {
+  z-index: 1 !important;
+  position: relative;
+}
+
 /* Add to your main CSS file */
 .react-select__control {
   border-radius: 0.5rem;

@@ -26,6 +26,10 @@ export default function ViewAppointments() {
   const [altenList, setAltenList] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [trattative, setTrattative] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [editStatus, setEditStatus] = useState("");
+  const [editStatusId, setEditStatusId] = useState(null);
+  const [editStatusValue, setEditStatusValue] = useState("");
 
   // Fetch all data including joins for appointments
   useEffect(() => {
@@ -464,15 +468,33 @@ export default function ViewAppointments() {
 
   const trattativeList = useMemo(() => {
     // Helper: does at least one appointment for this trattativa match the filters?
-    function matchesFilters(apps) {
-      // "App da verificare" special logic
+    function matchesFilters(apps, trattativa) {
+      const now = new Date();
+
+      if (dateFilter === "programmati") {
+        // At least one appointment with esito === "da fare"
+        return apps.some(a => a.esito === "da fare");
+      }
+
+      if (dateFilter === "feedback") {
+        // At least one appointment with esito === "attesa feedback"
+        return apps.some(a => a.esito === "attesa feedback");
+      }
+
       if (dateFilter === "da_verificare") {
-        const now = new Date();
-        // At least one past appointment
-        const hasPast = apps.some(a => a.data && new Date(a.data) < now);
+        // At least one appointment with esito not in ["negativo", "closed", "progetto"]
+        // Initiative status <> closed
         // No future appointments
-        const hasFuture = apps.some(a => a.data && new Date(a.data) >= now);
-        return hasPast && !hasFuture;
+        const hasValidApp = apps.some(
+          a =>
+            !["negativo", "closed", "progetto"].includes((a.esito || "").toLowerCase())
+        );
+        const hasFuture = apps.some(a => a.data && new Date(a.data) > now);
+        return (
+          hasValidApp &&
+          trattativa.status !== "closed" &&
+          !hasFuture
+        );
       }
 
       // Standard logic: at least one appointment matches all filters
@@ -529,12 +551,13 @@ export default function ViewAppointments() {
           denominazione: t.denominazione,
           struttura: t.struttura,
           note: t.note,
+          owner: t.owner,
           mostRecentDate,
           appointments: apps,
         };
       })
       // Only keep trattative with at least one appointment matching the filters
-      .filter(trattativa => matchesFilters(trattativa.appointments))
+      .filter(trattativa => matchesFilters(trattativa.appointments, trattativa))
       // Sort by most recent appointment date DESC
       .sort((a, b) => {
         if (!a.mostRecentDate && !b.mostRecentDate) return 0;
@@ -721,10 +744,10 @@ export default function ViewAppointments() {
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value)}
             >
-              <option value="tutti">Tutte le date</option>
-              <option value="programmati">App programmati</option>
-              <option value="passati">App passati</option>
-              <option value="da_verificare">App da verificare</option>
+              <option value="tutti">Filtro avanzato</option>
+              <option value="programmati">Da fare</option>
+              <option value="feedback">Attesa feedback</option>
+              <option value="da_verificare">Da verificare</option>
             </select>
           </span>
         </div>
@@ -750,6 +773,9 @@ export default function ViewAppointments() {
                 </th>
                 <th className="p-4 bg-transparent" style={{ width: "100px" }}>
                   <p className="text-xl leading-none font-semi-bold">Status</p>
+                </th>
+                <th className="p-4 bg-transparent" style={{ width: "120px" }}>
+                  <p className="text-xl leading-none font-semi-bold">Owner</p>
                 </th>
                 <th className="p-4 bg-transparent" style={{ minWidth: "200px" }}>
                   <p className="text-xl leading-none font-semi-bold">Iniziativa</p>
@@ -826,26 +852,81 @@ export default function ViewAppointments() {
                     <td className="p-4" style={{ minWidth: columnMinWidth }}>
                       <span className="text-sm">{trattativa.settore_cliente}</span>
                     </td>
-                    <td className="p-4" style={{ width: "100px" }}>
-                      <span
-                        className={
-                          "px-3 py-1 rounded-full text-xs font-semibold " +
-                          (trattativa.status === "ongoing"
-                            ? "bg-green-100 text-green-800"
-                            : trattativa.status === "to start"
-                            ? "bg-blue-100 text-blue-800"
-                            : trattativa.status === "closed"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-800")
-                        }
-                      >
-                        {trattativa.status}
+                    <td
+  className="p-4"
+  style={{ width: "100px", cursor: "pointer" }}
+  onDoubleClick={() => {
+    setEditStatusId(trattativa.id);
+    setEditStatusValue(trattativa.status);
+  }}
+>
+  {editStatusId === trattativa.id ? (
+    <select
+      value={editStatusValue}
+      onChange={async e => {
+        const newStatus = e.target.value;
+        setEditStatusValue(newStatus);
+        await fetch(`${import.meta.env.VITE_API_URL}/trattative/${trattativa.id}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        setEditStatusId(null);
+        // Optionally refresh your trattative list here if needed
+      }}
+      className="border border-gray-300 rounded-lg px-2 py-1"
+      autoFocus
+    >
+      <option value="to start">To Start</option>
+      <option value="ongoing">Ongoing</option>
+      <option value="on hold">On Hold</option>
+      <option value="closed">Closed</option>
+    </select>
+  ) : (
+    <span
+      className={
+        "px-3 py-1 rounded-full text-xs font-semibold " +
+        (trattativa.status === "ongoing"
+          ? "bg-green-100 text-green-800"
+          : trattativa.status === "to start"
+          ? "bg-blue-100 text-blue-800"          
+          : trattativa.status === "on hold"
+          ? "bg-orange-100 text-orange-800"
+          : trattativa.status === "closed"
+          ? "bg-red-100 text-red-800"
+          : "bg-gray-100 text-gray-800")
+      }
+    >
+      {trattativa.status}
+    </span>
+  )}
+</td>
+                    <td className="p-4" style={{ minWidth: "120px" }}>
+                      <span className="text-sm flex items-center gap-2">
+                        {trattativa.owner === "Alten" && (
+                          <img
+                            src="/alten-logo.jpg"
+                            alt="Alten"
+                            style={{ width: 20, height: 20, borderRadius: "50%", display: "inline-block" }}
+                          />
+                        )}
+                        {trattativa.owner === "SDG" && (
+                          <img
+                            src="/sdg-logo.png"
+                            alt="SDG"
+                            style={{ width: 20, height: 20, borderRadius: "50%", display: "inline-block" }}
+                          />
+                        )}
+                        {trattativa.owner || <span className="text-gray-400 italic">-</span>}
                       </span>
                     </td>
-                    <td className="p-4" style={{ minWidth: "180px" }}>
+                    <td className="p-4" style={{ minWidth: "200px" }}>
                       <span className="text-sm">{trattativa.denominazione}</span>
                     </td>
-                    <td className="p-4" style={{ minWidth: columnMinWidth }}>
+                    <td className="p-4" style={{ minWidth: "200px" }}>
                       <span className="text-sm">{trattativa.struttura}</span>
                     </td>
                     {/* --- ONLY ONE NOTE COLUMN, EDITABLE --- */}
@@ -876,9 +957,9 @@ export default function ViewAppointments() {
                   </tr>
                   {expanded[trattativa.id] && (
                     <tr>
-                      <td colSpan={6} className="p-0">
+                      <td colSpan={7} className="p-0"> {/* <-- colSpan matches the number of columns in the main table */}
                         <div style={{ width: "100%", overflowX: "auto" }}>
-                          <table className="w-full text-left" style={{ background: "#23272f", tableLayout: "fixed" }}>
+                          <table className="w-full text-left" style={{ background: "#23272f", tableLayout: "fixed", width: "100%" }}>
                             <thead>
                               <tr style={{ background: "#23272f" }}>
                                 <th className="p-4" style={{ color: "#fff", width: "120px" }}>Data</th>
@@ -916,9 +997,12 @@ export default function ViewAppointments() {
                                           onChange={e => handleChange("esito", e.target.value)}
                                         >
                                           <option value="">Seleziona</option>
-                                          <option value="ongoing">Ongoing</option>
-                                          <option value="to start">To Start</option>
-                                          <option value="closed">Closed</option>
+                                        <option value="da fare">Da Fare</option>
+                                        <option value="attesa feedback">Attesa Feedback</option>
+                                        <option value="ritorno">Ritorno</option>              
+                                        <option value="risentire">Risentire</option>
+                                        <option value="progetto">Progetto</option>
+                                        <option value="negativo">Negativo</option>
                                         </select>
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
@@ -1049,6 +1133,14 @@ export default function ViewAppointments() {
                                               ? "bg-green-100 text-green-800"
                                               : app.esito === "to start"
                                               ? "bg-blue-100 text-blue-800"
+                                              : app.esito === "da fare"
+                                              ? "bg-blue-100 text-blue-800"
+                                              : app.esito === "ritorno"
+                                              ? "bg-green-100 text-green-800"
+                                              : app.esito === "attesa feedback"
+                                              ? "bg-orange-100 text-orange-800"
+                                              : app.esito === "negativo"
+                                              ? "bg-red-100 text-red-800"
                                               : app.esito === "closed"
                                               ? "bg-red-100 text-red-800"
                                               : "bg-gray-100 text-gray-800")
@@ -1223,4 +1315,17 @@ function getSdgsForAppointmentIds(appointmentId) {
   return appointmentSdgGroup
     .filter(row => row.id_appuntamento === appointmentId)
     .map(row => row.id_sdg);
+}
+
+async function saveStatus(id) {
+  await fetch(`${import.meta.env.VITE_API_URL}/trattative/${id}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + localStorage.getItem("token"),
+    },
+    body: JSON.stringify({ status: editStatus }),
+  });
+  setEditId(null);
+  // Refresh initiatives list here
 }

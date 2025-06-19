@@ -56,7 +56,7 @@ export default function App() {
     <>
       <Navbar user={user} onLogout={handleLogout} />
       <Routes>
-        {/* Redirect root path based on user role */}
+        {/* Redirect root path based on user role after login */}
         <Route
           path="/"
           element={
@@ -64,7 +64,7 @@ export default function App() {
               ? (user.role === 'alten'
                   ? <Navigate to="/appointments" replace />
                   : <Navigate to="/dashboard" replace />)
-              : <Navigate to="/dashboard" replace />
+              : <Navigate to="/login" replace />
           }
         />
         

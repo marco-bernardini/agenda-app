@@ -9,7 +9,7 @@ export default function LoginPage({ onLogin }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setShowWaitMsg(true); // Show message after login click
+    setShowWaitMsg(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: "POST",
@@ -21,7 +21,7 @@ export default function LoginPage({ onLogin }) {
       if (!res.ok) {
         const text = await res.text();
         alert("Login failed: " + text);
-        setShowWaitMsg(false); // Hide message on error
+        setShowWaitMsg(false);
         return;
       }
 
@@ -31,15 +31,25 @@ export default function LoginPage({ onLogin }) {
 
       const data = await res.json();
       if (data.token) {
+        // Store token in localStorage
         localStorage.setItem("token", data.token);
-        onLogin();
+        
+        // Store user data including role
+        localStorage.setItem("user", JSON.stringify({
+          username: data.username,
+          role: data.role || 'user'
+        }));
+        
+        // Call onLogin with user data
+        onLogin(data);
       } else {
         alert(data.error || "Something went wrong.");
-        setShowWaitMsg(false); // Hide message on error
+        setShowWaitMsg(false);
       }
     } catch (err) {
       alert("Server error. Check the console.");
-      setShowWaitMsg(false); // Hide message on error
+      console.error(err);
+      setShowWaitMsg(false);
     }
   }
 

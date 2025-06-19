@@ -27,9 +27,25 @@ router.post("/login", async (req, res) => {
       console.log("Invalid password");
       return res.status(401).json({ error: "Invalid credentials." });
     }
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: "2h" });
+    
+    // Include role in the token payload
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role || 'user' // Default to 'user' if no role specified
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: "2h" }
+    );
+    
     console.log("Login successful, sending token");
-    res.json({ token });
+    // Include role in the response
+    res.json({ 
+      token,
+      username: user.username,
+      role: user.role || 'user'
+    });
   } catch (err) {
     console.error("Login error", err);
     res.status(500).json({ error: "Server error." });

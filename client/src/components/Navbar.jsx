@@ -1,26 +1,28 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import sdgLogo from "/sdg-logo-2.png"; // adjust path if needed
+import sdgLogo from "/sdg-logo-2.png";
 
-export default function Navbar({ onLogout }) {
+export default function Navbar({ user, onLogout }) {
   const navigate = useNavigate();
   const [showInsertDropdown, setShowInsertDropdown] = useState(false);
 
+  // Check if user is 'alten' role
+  const isAlten = user.role === 'alten';
+
   function logout() {
-    localStorage.removeItem("token");
     onLogout();
-    navigate("/");
+    navigate("/login");
   }
 
   return (
     <nav
       className="bg-gradient-to-br from-[#2A66DD] to-[#1DC8DF]"
       style={{
-        position: "fixed",           // Make navbar fixed
-        top: 0,                      // Stick to top
+        position: "fixed",
+        top: 0,
         left: 0,
-        width: "100%",               // Full width
-        zIndex: 1000,                // On top of other content
+        width: "100%",
+        zIndex: 1000,
         padding: "1rem 2rem",
         display: "flex",
         alignItems: "center",
@@ -34,17 +36,23 @@ export default function Navbar({ onLogout }) {
           alt="SDG Logo"
           style={{ height: "40px", width: "auto", marginRight: "1.5rem" }}
         />
-        <Link
-          to="/dashboard"
-          style={{
-            color: "white",
-            fontSize: "1.3rem",
-            textDecoration: "none",
-            fontWeight: "bold",
-          }}
-        >
-          Dashboard
-        </Link>
+        
+        {/* Only show Dashboard if NOT 'alten' */}
+        {!isAlten && (
+          <Link
+            to="/dashboard"
+            style={{
+              color: "white",
+              fontSize: "1.3rem",
+              textDecoration: "none",
+              fontWeight: "bold",
+            }}
+          >
+            Dashboard
+          </Link>
+        )}
+        
+        {/* Always show Appointments */}
         <Link
           to="/appointments"
           style={{
@@ -56,6 +64,8 @@ export default function Navbar({ onLogout }) {
         >
           Appuntamenti
         </Link>
+        
+        {/* Always show Companies */}
         <Link
           to="/companies"
           style={{
@@ -67,106 +77,112 @@ export default function Navbar({ onLogout }) {
         >
           Clienti
         </Link>
-        <Link
-          to="/key-people"
-          style={{
-            color: "white",
-            fontSize: "1.3rem",
-            textDecoration: "none",
-            fontWeight: "bold",
-          }}
-        >
-          Key People
-        </Link>
-        {/* Inserisci Dropdown */}
-        <div
-          style={{ position: "relative" }}
-          onMouseEnter={() => setShowInsertDropdown(true)}
-          onMouseLeave={() => setShowInsertDropdown(false)}
-        >
-          <button
+        
+        {/* Only show Key People if NOT 'alten' */}
+        {!isAlten && (
+          <Link
+            to="/key-people"
             style={{
               color: "white",
               fontSize: "1.3rem",
               textDecoration: "none",
               fontWeight: "bold",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
             }}
           >
-            Inserisci ▾
-          </button>
-          {showInsertDropdown && (
+            Key People
+          </Link>
+        )}
+        
+        {/* Only show Insert dropdown if NOT 'alten' */}
+        {!isAlten && (
+          <div
+            style={{ position: "relative" }}
+            onMouseEnter={() => setShowInsertDropdown(true)}
+            onMouseLeave={() => setShowInsertDropdown(false)}
+          >
             <div
               style={{
-                position: "absolute",
-                top: "2.2rem",
-                left: 0,
-                background: "#2A66DD",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
-                minWidth: "200px",
-                zIndex: 100,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                color: "white",
+                fontSize: "1.3rem",
+                textDecoration: "none",
+                fontWeight: "bold",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
               }}
             >
-              <Link
-                to="/insert"
-                style={{
-                  display: "block",
-                  color: "white",
-                  padding: "0.7rem 1.2rem",
-                  textDecoration: "none",
-                  fontSize: "1.1rem",
-                  borderBottom: "1px solid #ffffff",
-                }}
-              >
-                Appuntamento
-              </Link>
-              <Link
-                to="/insert-company"
-                style={{
-                  display: "block",
-                  color: "white",
-                  padding: "0.7rem 1.2rem",
-                  textDecoration: "none",
-                  fontSize: "1.1rem",
-                  borderBottom: "1px solid #ffffff",
-                }}
-              >
-                Compagnia
-              </Link>
-              <Link
-                to="/insert-key-people"
-                style={{
-                  display: "block",
-                  color: "white",
-                  padding: "0.7rem 1.2rem",
-                  textDecoration: "none",
-                  fontSize: "1.1rem",
-                  borderBottom: "1px solid #ffffff",
-                }}
-              >
-                Key People
-              </Link>
-              <Link
-                to="/insert-initiative"
-                style={{
-                  display: "block",
-                  color: "white",
-                  padding: "0.7rem 1.2rem",
-                  textDecoration: "none",
-                  fontSize: "1.1rem",
-                }}
-              >
-                Iniziativa
-              </Link>
+              Inserisci ▼
             </div>
-          )}
-        </div>
+            {showInsertDropdown && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  backgroundColor: "white",
+                  borderRadius: "6px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                  width: "180px",
+                  zIndex: 1001,
+                }}
+              >
+                <Link
+                  to="/insert"
+                  style={{
+                    display: "block",
+                    padding: "0.8rem 1.2rem",
+                    color: "#2A66DD",
+                    textDecoration: "none",
+                    fontWeight: "500",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  Appuntamento
+                </Link>
+                <Link
+                  to="/insert-company"
+                  style={{
+                    display: "block",
+                    padding: "0.8rem 1.2rem",
+                    color: "#2A66DD",
+                    textDecoration: "none",
+                    fontWeight: "500",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  Cliente
+                </Link>
+                <Link
+                  to="/insert-initiative"
+                  style={{
+                    display: "block",
+                    padding: "0.8rem 1.2rem",
+                    color: "#2A66DD",
+                    textDecoration: "none",
+                    fontWeight: "500",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  Iniziativa
+                </Link>
+                <Link
+                  to="/insert-key-people"
+                  style={{
+                    display: "block",
+                    padding: "0.8rem 1.2rem",
+                    color: "#2A66DD",
+                    textDecoration: "none",
+                    fontWeight: "500",
+                  }}
+                >
+                  Key People
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+      
       <button
         onClick={logout}
         style={{
@@ -176,7 +192,7 @@ export default function Navbar({ onLogout }) {
           borderRadius: "6px",
           fontSize: "1.2rem",
           fontWeight: "bold",
-          padding: "0.5em 1.2em",
+          padding: "0.5rem 1rem",
           cursor: "pointer",
         }}
       >

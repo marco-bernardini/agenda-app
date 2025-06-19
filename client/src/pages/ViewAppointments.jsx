@@ -6,7 +6,8 @@ import Select from "react-select";
 import React from "react";
 import { DateTime } from "luxon";
 
-export default function ViewAppointments() {
+export default function ViewAppointments({ user }) {
+
   const navigate = useNavigate();
 
   const [filter, setFilter] = useState("tutti");
@@ -185,8 +186,18 @@ export default function ViewAppointments() {
 
   // Filter logic
   const filteredAppointments = useMemo(() => {
-    if (!Array.isArray(appointments)) return [];
     let filtered = appointments;
+
+    // For 'alten' users, only show appointments where the related trattativa is owned by 'Alten'
+    if (user && user.role === 'alten') {
+      // Get IDs of trattative owned by 'Alten'
+      const allowedTrattativeIds = trattative
+        .filter(t => t.owner === 'Alten')
+        .map(t => t.id);
+
+      // Only keep appointments linked to those trattative
+      filtered = filtered.filter(app => allowedTrattativeIds.includes(app.id_trattativa));
+    }
 
     // Industry filter
     if (filter && filter !== "tutti") {
@@ -250,6 +261,7 @@ export default function ViewAppointments() {
   }, [
     appointments,
     filter,
+    user,
     selectedCompany,
     selectedBusinessUnit,
     selectedSDG,
@@ -336,7 +348,6 @@ export default function ViewAppointments() {
       next_steps: editData.next_steps,
       note: editData.note,
     };
-    console.log("PUT /appuntamenti/" + id, appointmentPayload);
     await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti/${id}`, {
       method: "PUT",
       headers: {
@@ -353,7 +364,6 @@ export default function ViewAppointments() {
         id_appuntamento: id,
         id_alten: id_alten,
       };
-      console.log("POST /appuntamenti-alten", altenPayload);
       await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-alten`, {
         method: "POST",
         headers: {
@@ -368,7 +378,6 @@ export default function ViewAppointments() {
     const oldLinks = appointmentSdgGroup.filter(row => row.id_appuntamento === id);
     for (const link of oldLinks) {
       const deletePayload = { id_appuntamento: id, id_sdg: link.id_sdg };
-      console.log("DELETE /appuntamenti-sdg-group", deletePayload);
       await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
         method: "DELETE",
         headers: {
@@ -385,7 +394,6 @@ export default function ViewAppointments() {
     );
     for (const sdg of selectedSdgs) {
       const postPayload = { id_appuntamento: id, id_sdg: sdg.id };
-      console.log("POST /appuntamenti-sdg-group", postPayload);
       await fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-sdg-group`, {
         method: "POST",
         headers: {
@@ -473,13 +481,13 @@ export default function ViewAppointments() {
 
   const trattativeMap = useMemo(() => {
     const map = {};
-    appointments.forEach(app => {
+    filteredAppointments.forEach(app => {
       if (!app.id_trattativa) return;
       if (!map[app.id_trattativa]) map[app.id_trattativa] = [];
       map[app.id_trattativa].push(app);
     });
     return map;
-  }, [appointments]);
+  }, [filteredAppointments]);
 
   const [newTaskForApp, setNewTaskForApp] = useState(null);
   const [newTaskDescrizione, setNewTaskDescrizione] = useState("");
@@ -837,6 +845,11 @@ export default function ViewAppointments() {
                 <th className="p-4 bg-transparent" style={{ minWidth: columnMinWidth }}>
                   <p className="text-xl leading-none font-semi-bold">Note</p>
                 </th>
+                {/*
+                <th className="p-4 bg-transparent" style={{ width: "100px" }}>
+                  <p className="text-xl leading-none font-semi-bold">Azioni</p>
+                </th>
+                */}
               </tr>
             </thead>
             <tbody>
@@ -1005,6 +1018,45 @@ export default function ViewAppointments() {
                         </span>
                       )}
                     </td>
+                    {/*
+                    <td className="p-4" style={{ width: "100px" }}>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(trattativa)}
+                          className="text-blue-500 hover:text-blue-700"
+                          title="Modifica trattativa"
+                        >
+                          <FaEdit />
+                        </button>
+                        {user.role !== 'alten' && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm("Sei sicuro di voler eliminare questa trattativa?")) {
+                                fetch(`${import.meta.env.VITE_API_URL}/trattative/${trattativa.id}`, {
+                                  method: "DELETE",
+                                  headers: {
+                                    Authorization: "Bearer " + localStorage.getItem("token"),
+                                  },
+                                })
+                                  .then(res => {
+                                    if (res.ok) {
+                                      setTrattative(prev => prev.filter(t => t.id !== trattativa.id));
+                                      alert("Trattativa eliminata con successo.");
+                                    } else {
+                                      alert("Errore durante l'eliminazione della trattativa.");
+                                    }
+                                  });
+                              }
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                            title="Elimina trattativa"
+                          >
+                            <FaTimes />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    */}
                   </tr>
                   {expanded[trattativa.id] && (
                     <tr>

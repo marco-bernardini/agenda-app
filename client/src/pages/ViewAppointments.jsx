@@ -11,7 +11,6 @@ export default function ViewAppointments() {
 
   const [filter, setFilter] = useState("tutti");
   const [selectedCompany, setSelectedCompany] = useState("tutti");
-  const [companies, setCompanies] = useState([]);
   const [appointmentSdgGroup, setAppointmentSdgGroup] = useState([]);
   const [sdgList, setSdgList] = useState([]);
   const [selectedSDG, setSelectedSDG] = useState("tutti");
@@ -26,6 +25,7 @@ export default function ViewAppointments() {
   const [altenList, setAltenList] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [trattative, setTrattative] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [editId, setEditId] = useState(null);
   const [editStatus, setEditStatus] = useState("");
   const [editStatusId, setEditStatusId] = useState(null);
@@ -112,6 +112,24 @@ export default function ViewAppointments() {
     return sdgList
       .filter(sdg => sdgGroupIds.includes(sdg.id))
       .map(sdg => sdg.nominativo);
+  }
+
+  // Refresh initiatives (trattative)
+  function refreshInitiatives() {
+    fetch(`${import.meta.env.VITE_API_URL}/trattative`, {
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    })
+      .then(res => res.json())
+      .then(setTrattative); // or setInitiatives if you use a different state variable
+  }
+
+  // Refresh appointments
+  function refreshAppointments() {
+    fetch(`${import.meta.env.VITE_API_URL}/appuntamenti?withDetails=1`, {
+      headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    })
+      .then(res => res.json())
+      .then(setAppointments);
   }
 
   // Helper: get key people for an appointment
@@ -481,6 +499,11 @@ export default function ViewAppointments() {
         return apps.some(a => a.esito === "attesa feedback");
       }
 
+      if (dateFilter === "senza_appuntamenti") {
+        return trattative
+          .filter(t => t.status === "to start" && (!trattativeMap[t.id] || trattativeMap[t.id].length === 0));
+      }
+
       if (dateFilter === "da_verificare") {
         // At least one appointment with esito not in ["negativo", "closed", "progetto"]
         // Initiative status <> closed
@@ -565,6 +588,33 @@ export default function ViewAppointments() {
         if (!b.mostRecentDate) return -1;
         return new Date(b.mostRecentDate) - new Date(a.mostRecentDate);
       });
+
+    // Advanced filter: "senza_appuntamenti" (To Start with no appointments)
+    if (dateFilter === "senza_appuntamenti") {
+      return trattative
+        .filter(t => t.status === "to start" && (!trattativeMap[t.id] || trattativeMap[t.id].length === 0))
+        .map(t => {
+          const cliente = companies.find(c => c.id === t.id_cliente) || {};
+          let logo = "";
+          if (cliente.sito_web) {
+            const domain = cliente.sito_web.replace(/^https?:\/\//, "");
+            logo = `https://logo.clearbit.com/${domain}`;
+          }
+          return {
+            id: t.id,
+            denominazione_cliente: cliente.denominazione_cliente,
+            logo,
+            settore_cliente: cliente.settore,
+            status: t.status,
+            denominazione: t.denominazione,
+            struttura: t.struttura,
+            note: t.note,
+            owner: t.owner,
+            mostRecentDate: null,
+            appointments: [],
+          };
+        });
+    }
 
     return list;
   }, [
@@ -748,6 +798,7 @@ export default function ViewAppointments() {
               <option value="programmati">Da fare</option>
               <option value="feedback">Attesa feedback</option>
               <option value="da_verificare">Da verificare</option>
+              <option value="senza_appuntamenti">Senza appuntamenti</option>
             </select>
           </span>
         </div>
@@ -875,7 +926,7 @@ export default function ViewAppointments() {
           body: JSON.stringify({ status: newStatus }),
         });
         setEditStatusId(null);
-        // Optionally refresh your trattative list here if needed
+        refreshInitiatives()
       }}
       className="border border-gray-300 rounded-lg px-2 py-1"
       autoFocus
@@ -987,14 +1038,14 @@ export default function ViewAppointments() {
                                             ? DateTime.fromISO(editData.data, { zone: "utc" }).toFormat("yyyy-MM-dd")
                                             : ""
                                         }
-                                        onChange={e => handleChange("data", e.target.value)}
+                                        onChange={e => {handleChange("data", e.target.value);refreshAppointments();}}
                                       />
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
                                         <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.esito || ""}
-                                          onChange={e => handleChange("esito", e.target.value)}
+                                          onChange={e => {handleChange("esito", e.target.value);refreshAppointments();}}
                                         >
                                           <option value="">Seleziona</option>
                                         <option value="da fare">Da Fare</option>
@@ -1009,7 +1060,7 @@ export default function ViewAppointments() {
                                         <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.format || ""}
-                                          onChange={e => handleChange("format", e.target.value)}
+                                          onChange={e => {handleChange("format", e.target.value);refreshAppointments();}}
                                         >
                                           <option value="">Seleziona formato</option>
                                           <option value="Call">Call</option>
@@ -1021,7 +1072,7 @@ export default function ViewAppointments() {
                                         <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.referente_azienda || ""}
-                                          onChange={e => handleChange("referente_azienda", e.target.value)}
+                                          onChange={e => {handleChange("referente_azienda", e.target.value);refreshAppointments();}}
                                         >
                                           <option value="">Seleziona referente azienda</option>
                                           {Array.from(
@@ -1068,7 +1119,7 @@ export default function ViewAppointments() {
                                         <select
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.referente_alten || ""}
-                                          onChange={e => handleChange("referente_alten", e.target.value)}
+                                          onChange={e => {handleChange("referente_alten", e.target.value);refreshAppointments();}}
                                         >
                                           <option value="">Seleziona referente Alten</option>
                                           {[...new Set(altenList.map(a => a.nominativo).filter(Boolean))].map(nominativo => (
@@ -1081,7 +1132,7 @@ export default function ViewAppointments() {
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.to_do || ""}
-                                          onChange={e => handleChange("to_do", e.target.value)}
+                                          onChange={e => {handleChange("to_do", e.target.value);refreshAppointments();} }
                                         />
                                       </td>
                                       <td className="p-4" style={{ color: "#23272f" }}>
@@ -1089,7 +1140,7 @@ export default function ViewAppointments() {
                                           type="text"
                                           className="w-full border rounded px-2 py-1 text-black"
                                           value={editData.note || ""}
-                                          onChange={e => handleChange("note", e.target.value)}
+                                          onChange={e => {handleChange("note", e.target.value);refreshAppointments();} }
                                         />
                                       </td>
                                       <td className="p-4" style={{ color: "#fff" }}>

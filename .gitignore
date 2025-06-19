@@ -14,3 +14,5 @@
 *.sqlite3
 
 node_modules
+mail_reminder.js
+mail_reminder_test.js

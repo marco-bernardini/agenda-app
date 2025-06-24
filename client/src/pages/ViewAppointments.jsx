@@ -32,6 +32,9 @@ export default function ViewAppointments({ user }) {
   const [editStatusId, setEditStatusId] = useState(null);
   const [editStatusValue, setEditStatusValue] = useState("");
 
+  // Add this state for appuntamenti_alten data
+  const [appuntamentiAlten, setAppuntamentiAlten] = useState([]);
+
   // Fetch all data including joins for appointments
   useEffect(() => {
     // Custom endpoint that returns appointments with cliente and referente_alten joined
@@ -102,6 +105,17 @@ export default function ViewAppointments({ user }) {
     })
       .then(res => res.json())
       .then(setTrattative);
+  }, []);
+
+  // Add this useEffect to fetch appuntamenti_alten data
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/appuntamenti-alten`, {
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+    })
+      .then(res => res.json())
+      .then(setAppuntamentiAlten);
   }, []);
 
   // Helper: get SDG nominativi for an appointment
@@ -188,15 +202,27 @@ export default function ViewAppointments({ user }) {
   const filteredAppointments = useMemo(() => {
     let filtered = appointments;
 
-    // For 'alten' users, only show appointments where the related trattativa is owned by 'Alten'
+    // For 'alten' users, only filter after trattative is fetched
     if (user && user.role === 'alten') {
-      // Get IDs of trattative owned by 'Alten'
-      const allowedTrattativeIds = trattative
-        .filter(t => t.owner === 'Alten')
-        .map(t => t.id);
+      if (trattative && trattative.length > 0) {
+        const allowedTrattativeIds = trattative
+          .filter(t => t.owner === 'Alten')
+          .map(t => t.id);
+        filtered = filtered.filter(app => allowedTrattativeIds.includes(app.id_trattativa));
+      } else {
+        // Avoid showing anything until trattative are loaded
+        filtered = [];
+      }
+    }
 
-      // Only keep appointments linked to those trattative
-      filtered = filtered.filter(app => allowedTrattativeIds.includes(app.id_trattativa));
+    if (user && user.username === "caiazzo") {
+      // Get appointments with id = 2 in appuntamenti_alten table
+      const altenAppointmentIds = appuntamentiAlten
+        .filter(relation => relation.id_alten === 2)
+        .map(relation => relation.id_appuntamento);
+
+      // Filter to only show these appointments
+      filtered = filtered.filter(app => altenAppointmentIds.includes(app.id));
     }
 
     // Industry filter
@@ -260,8 +286,9 @@ export default function ViewAppointments({ user }) {
     return filtered;
   }, [
     appointments,
-    filter,
     user,
+    trattative,
+    filter,
     selectedCompany,
     selectedBusinessUnit,
     selectedSDG,

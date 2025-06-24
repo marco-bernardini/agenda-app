@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import abstractBg from "/Abstract.jpg";
+import React from "react";
 
 const searchWrapperClass =
   "relative inline-flex items-center justify-center p-0.5 mb-2 me-2 overflow-hidden text-sm font-medium rounded-lg group bg-gradient-to-br from-[#2A66DD] to-[#1DC8DF] focus:ring-4 focus:outline-none focus:ring-blue-100";
@@ -205,9 +206,8 @@ export default function Companies() {
               const keyPeopleForCompany = getKeyPeopleForCompany(c.id);
 
               return (
-                <>
+                <React.Fragment key={c.id}>
                   <tr
-                    key={c.id}
                     className={`${rowBg} hover:bg-blue-50 relative`}
                     onMouseEnter={e => handleRowMouseEnter(e, c.id, idx)}
                     onMouseLeave={handleRowMouseLeave}
@@ -348,7 +348,7 @@ export default function Companies() {
                     </td>
                   </tr>
                   {expanded[c.id] && (
-                    <tr>
+                    <tr key={`${c.id}-expanded`}>
                       <td colSpan={columnMinWidth.length} className="p-0">
                         <div
                           style={{
@@ -412,7 +412,7 @@ export default function Companies() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>

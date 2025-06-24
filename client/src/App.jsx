@@ -37,15 +37,10 @@ export default function App() {
     setUser(null);
   };
 
-  // If not logged in, show login page
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
   // Helper function to check if a route is restricted
   const isRestricted = (path) => {
-    // If user is not 'alten', allow all routes
-    if (user.role !== 'alten') return false;
+    // If no user or user is not 'alten', allow all routes
+    if (!user || user.role !== 'alten') return false;
     
     // For 'alten' users, only allow companies and appointments
     const allowedPaths = ['/companies', '/appointments'];
@@ -54,9 +49,19 @@ export default function App() {
 
   return (
     <>
-      <Navbar user={user} onLogout={handleLogout} />
+      {user && <Navbar user={user} onLogout={handleLogout} />}
       <Routes>
-        {/* Redirect root path based on user role after login */}
+        {/* CHANGE 2: Add a proper "/login" route */}
+        <Route 
+          path="/login" 
+          element={
+            user 
+              ? <Navigate to="/" replace /> 
+              : <LoginPage onLogin={handleLogin} />
+          } 
+        />
+
+        {/* CHANGE 3: Fix the root redirect to use "/login" instead of "/LoginPage" */}
         <Route
           path="/"
           element={
@@ -69,6 +74,7 @@ export default function App() {
         />
         
         {/* Routes conditionally restricted based on role */}
+        
         <Route 
           path="/dashboard" 
           element={isRestricted('/dashboard') ? <Navigate to="/unauthorized" replace /> : <Dashboard />} 
@@ -111,6 +117,9 @@ export default function App() {
         
         {/* Unauthorized page */}
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        
+        {/* CHANGE 4: Add a catch-all route for unmatched paths */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );

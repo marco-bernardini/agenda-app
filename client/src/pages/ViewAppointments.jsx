@@ -31,6 +31,7 @@ export default function ViewAppointments({ user }) {
   const [editStatus, setEditStatus] = useState("");
   const [editStatusId, setEditStatusId] = useState(null);
   const [editStatusValue, setEditStatusValue] = useState("");
+  const [selectedAlten, setSelectedAlten] = useState("tutti");
 
   // Add this state for appuntamenti_alten data
   const [appuntamentiAlten, setAppuntamentiAlten] = useState([]);
@@ -255,6 +256,11 @@ export default function ViewAppointments({ user }) {
       );
     }
 
+    // Alten filter
+    if (selectedAlten && selectedAlten !== "tutti") {
+      filtered = filtered.filter(a => a.referente_alten === selectedAlten);
+    }
+
     // Date filter
     if (dateFilter && dateFilter !== "tutti") {
       const now = new Date();
@@ -292,6 +298,7 @@ export default function ViewAppointments({ user }) {
     selectedCompany,
     selectedBusinessUnit,
     selectedSDG,
+    selectedAlten,
     dateFilter,
     sdgList,
     companies,
@@ -494,12 +501,20 @@ export default function ViewAppointments({ user }) {
   const dropdownInnerClass =
     "relative px-5 py-2.5 transition-all ease-in duration-75 bg-white rounded-md group-hover:bg-transparent";
   const dropdownSelectClass =
-    "bg-transparent border-none outline-none text-gray-900 text-base font-medium min-w-[220px] max-w-[220px] transition-colors duration-150 hover:text-white hover:font-bold focus:text-white focus:font-bold";
+    "bg-transparent border-none outline-none text-gray-900 text-base font-medium min-w-[170px] max-w-[170px] transition-colors duration-150 hover:text-white hover:font-bold focus:text-white focus:font-bold";
 
   const filteredSdgList =
     selectedBusinessUnit === "tutti"
       ? sdgList
       : sdgList.filter(sdg => sdg.business_unit === selectedBusinessUnit);
+
+  const filteredAltenList = useMemo(() => {
+    if (!altenList || altenList.length === 0) return [];
+    const nominativiInAppointments = [
+      ...new Set(appointments.map(a => a.referente_alten).filter(Boolean))
+    ];
+    return altenList.filter(a => nominativiInAppointments.includes(a.nominativo));
+  }, [altenList, appointments]);
 
   const sdgOptions = sdgList.map(sdg => ({
     value: sdg.id,
@@ -769,7 +784,7 @@ export default function ViewAppointments({ user }) {
               value={filter}
               onChange={e => setFilter(e.target.value)}
             >
-              <option value="tutti">Tutte le industry</option>
+              <option value="tutti">Industry</option>
               <option value="Banking">Banking</option>
               <option value="Insurance">Insurance</option>
             </select>
@@ -782,7 +797,7 @@ export default function ViewAppointments({ user }) {
               value={selectedCompany}
               onChange={e => setSelectedCompany(e.target.value)}
             >
-              <option value="tutti">Tutte le aziende</option>
+              <option value="tutti">Clienti</option>
               {[...new Set(companies.map(c => c.denominazione_cliente).filter(Boolean))].map(denominazioneCliente => (
                 <option key={denominazioneCliente} value={denominazioneCliente}>
                   {denominazioneCliente}
@@ -801,7 +816,7 @@ export default function ViewAppointments({ user }) {
                 setSelectedSDG("tutti");
               }}
             >
-              <option value="tutti">Tutte le BU</option>
+              <option value="tutti">Business Unit</option>
               {businessUnits.map(bu => (
                 <option key={bu} value={bu}>{bu}</option>
               ))}
@@ -815,9 +830,23 @@ export default function ViewAppointments({ user }) {
               value={selectedSDG}
               onChange={e => setSelectedSDG(e.target.value)}
             >
-              <option value="tutti">Tutta SDG</option>
+              <option value="tutti">SDGers</option>
               {filteredSdgList.map(sdg => (
                 <option key={sdg.id} value={sdg.nominativo}>{sdg.nominativo}</option>
+              ))}
+            </select>
+          </span>
+        </div>
+        <div className={dropdownWrapperClass}>
+          <span className={dropdownInnerClass}>
+            <select
+              className={dropdownSelectClass}
+              value={selectedAlten}
+              onChange={e => setSelectedAlten(e.target.value)}
+            >
+              <option value="tutti">Alten</option>
+              {filteredAltenList.map(alten => (
+                <option key={alten.id} value={alten.nominativo}>{alten.nominativo}</option>
               ))}
             </select>
           </span>

@@ -5,6 +5,8 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm"; // <-- Add this import
 import abstractBg from "/Abstract.jpg";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -35,7 +37,7 @@ export default function Chat() {
 
     try {
       console.log("📤 Sending question to backend:", input);
-      const res = await axios.post("/api/chat", {
+      const res = await axios.post(`${API_BASE_URL}/api/chat`, {
         question: input,
         history, // send history to backend
       });

@@ -10,7 +10,8 @@ import Companies from "./pages/Companies";
 import InsertKeyPeople from "./pages/InsertKeyPeople";
 import KeyPeople from "./pages/KeyPeople";
 import InsertInitiative from "./pages/InsertInitiative";
-import UnauthorizedPage from "./pages/UnauthorizedPage"; // Import the component
+import UnauthorizedPage from "./pages/UnauthorizedPage";
+import Chat from "./pages/Chat";
 
 export default function App() {
   // Store user info including role
@@ -113,6 +114,11 @@ export default function App() {
         <Route 
           path="/insert-initiative" 
           element={isRestricted('/insert-initiative') ? <Navigate to="/unauthorized" replace /> : <InsertInitiative />} 
+        />
+
+        <Route 
+          path="/chat" 
+          element={isRestricted('/chat') ? <Navigate to="/unauthorized" replace /> : <Chat />} 
         />
         
         {/* Unauthorized page */}

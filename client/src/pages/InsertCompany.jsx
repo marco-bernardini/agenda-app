@@ -23,7 +23,8 @@ export default function InsertCompany() {
     e.preventDefault();
     const data = {
       ...form,
-      capitale_sociale: form.capitale_sociale === "" ? null : Number(form.capitale_sociale),
+      capitale_sociale:
+        form.capitale_sociale === "" ? null : Number(form.capitale_sociale),
       fatturato: form.fatturato === "" ? null : Number(form.fatturato),
     };
     fetch(`${import.meta.env.VITE_API_URL}/clienti`, {
@@ -34,7 +35,7 @@ export default function InsertCompany() {
       },
       body: JSON.stringify(data),
     })
-      .then(async res => {
+      .then(async (res) => {
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error || "Errore");
@@ -54,11 +55,11 @@ export default function InsertCompany() {
           sito_web: "",
         });
       })
-      .catch(err => setError(err.message));
+      .catch((err) => setError(err.message));
   }
 
   // Disable ramo if settore is Banking
-  const ramoDisabled = form.settore === "Banking";
+  const ramoDisabled = form.settore != "Insurance";
 
   return (
     <div
@@ -78,7 +79,9 @@ export default function InsertCompany() {
         onSubmit={addCompany}
         className="max-w-4xl w-full mx-auto bg-white border border-gray-200 rounded-xl shadow-md p-8"
       >
-        <h1 className="text-2xl font-bold mb-8 text-gray-900">Inserisci Compagnia</h1>
+        <h1 className="text-2xl font-bold mb-8 text-gray-900">
+          Inserisci Compagnia
+        </h1>
         {error && (
           <div className="mb-4 text-red-600 bg-red-50 border border-red-200 rounded p-2">
             {error}
@@ -86,7 +89,10 @@ export default function InsertCompany() {
         )}
         <div className="grid gap-6 mb-6 md:grid-cols-2">
           <div>
-            <label htmlFor="denominazione_cliente" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="denominazione_cliente"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Denominazione Cliente
             </label>
             <input
@@ -100,7 +106,10 @@ export default function InsertCompany() {
             />
           </div>
           <div>
-            <label htmlFor="settore" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="settore"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Settore
             </label>
             <select
@@ -114,10 +123,16 @@ export default function InsertCompany() {
               <option value="">Seleziona settore</option>
               <option value="Banking">Banking</option>
               <option value="Insurance">Insurance</option>
+              <option value="Payments">Payments</option>
+              <option value="Asset Management">Asset Management</option>
+              <option value="IT Services">IT Services</option>
             </select>
           </div>
           <div>
-            <label htmlFor="gruppo" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="gruppo"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Gruppo
             </label>
             <input
@@ -130,7 +145,10 @@ export default function InsertCompany() {
             />
           </div>
           <div>
-            <label htmlFor="ramo" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="ramo"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Ramo
             </label>
             <select
@@ -149,7 +167,10 @@ export default function InsertCompany() {
             </select>
           </div>
           <div>
-            <label htmlFor="capitale_sociale" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="capitale_sociale"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Capitale Sociale (€)
             </label>
             <input
@@ -163,7 +184,10 @@ export default function InsertCompany() {
             />
           </div>
           <div>
-            <label htmlFor="fatturato" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="fatturato"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Fatturato (€)
             </label>
             <input
@@ -177,7 +201,10 @@ export default function InsertCompany() {
             />
           </div>
           <div>
-            <label htmlFor="sede" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="sede"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Sede
             </label>
             <input
@@ -190,7 +217,10 @@ export default function InsertCompany() {
             />
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="sito_web" className="block mb-2 text-sm font-medium text-gray-900">
+            <label
+              htmlFor="sito_web"
+              className="block mb-2 text-sm font-medium text-gray-900"
+            >
               Sito Web
             </label>
             <input

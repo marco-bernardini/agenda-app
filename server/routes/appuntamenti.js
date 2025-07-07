@@ -41,17 +41,15 @@ router.post("/", async (req, res) => {
     esito,
     data,
     format,
-    to_do,
-    next_steps,
     note,
     id_trattativa
   } = req.body;
   try {
     const result = await pool.query(
       `INSERT INTO appuntamenti 
-        (esito, data, format, to_do, next_steps, note, id_trattativa)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [esito, data, format, to_do, next_steps, note, id_trattativa]
+        (esito, data, format, note, id_trattativa)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [esito, data, format, note, id_trattativa]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -66,8 +64,6 @@ router.put("/:id", async (req, res) => {
     esito,
     data,
     format,
-    to_do,
-    next_steps,
     note,
 /*     referente_alten */
   } = req.body;
@@ -78,11 +74,9 @@ router.put("/:id", async (req, res) => {
         esito = $1,
         data = $2,
         format = $3,
-        to_do = $4,
-        next_steps = $5,
-        note = $6
-       WHERE id = $7`,
-      [esito, data, format, to_do, next_steps, note, req.params.id]
+        note = $4
+       WHERE id = $5`,
+      [esito, data, format, note, req.params.id]
     );
 
 /*     // Update referente_alten (in appuntamenti_alten)

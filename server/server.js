@@ -13,6 +13,7 @@ import appuntamentiKeyPeopleRouter from "./routes/appuntamenti_key_people.js";
 import trattativeRouter from "./routes/trattative.js";
 import taskRouter from "./routes/task.js";
 import metricsRouter from "./routes/metrics.js";
+import chatRouter from "./routes/chat.js";
 import { authLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import pool from "./models/db.js";
 
@@ -39,7 +40,7 @@ app.use("/api/register", authLimiter);
 app.use("/api/appuntamenti", apiLimiter);
 app.use("/api/clienti", apiLimiter);
 
-// Main API routes (adjusted to match your DB and file structure)
+// Main API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/appuntamenti", appointmentRoutes);
 app.use("/api/clienti", clientiRouter);
@@ -52,6 +53,12 @@ app.use("/api/appuntamenti-key-people", appuntamentiKeyPeopleRouter);
 app.use("/api/trattative", trattativeRouter);
 app.use("/api/tasks", taskRouter);
 app.use("/api/metrics", metricsRouter);
+app.use("/api", chatRouter);
+
+// Verify the chat router is mounted
+console.log("🚀 Routes mounted:");
+console.log("- /api/chat (Chat API)");
+// ... list other routes if needed
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

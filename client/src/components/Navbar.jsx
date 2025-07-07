@@ -7,7 +7,7 @@ export default function Navbar({ user, onLogout }) {
   const [showInsertDropdown, setShowInsertDropdown] = useState(false);
 
   // Check if user is 'alten' role
-  const isAlten = user.role === 'alten';
+  const isAlten = user.role === "alten";
 
   function logout() {
     onLogout();
@@ -30,13 +30,20 @@ export default function Navbar({ user, onLogout }) {
         boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
       }}
     >
-      <div style={{ display: "flex", gap: "2rem", alignItems: "center", position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "2rem",
+          alignItems: "center",
+          position: "relative",
+        }}
+      >
         <img
           src={sdgLogo}
           alt="SDG Logo"
           style={{ height: "40px", width: "auto", marginRight: "1.5rem" }}
         />
-        
+
         {/* Only show Dashboard if NOT 'alten' */}
         {!isAlten && (
           <Link
@@ -51,7 +58,25 @@ export default function Navbar({ user, onLogout }) {
             Dashboard
           </Link>
         )}
-        
+
+        {/* Only show Chat if NOT 'alten' */}
+        {!isAlten && (
+          <Link
+            to="/chat"
+            style={{
+              color: "white",
+              fontSize: "1.3rem",
+              textDecoration: "none",
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            Assistant (beta)
+          </Link>
+        )}
+
         {/* Always show Appointments */}
         <Link
           to="/appointments"
@@ -64,7 +89,7 @@ export default function Navbar({ user, onLogout }) {
         >
           Appuntamenti
         </Link>
-        
+
         {/* Always show Companies */}
         <Link
           to="/companies"
@@ -77,7 +102,7 @@ export default function Navbar({ user, onLogout }) {
         >
           Clienti
         </Link>
-        
+
         {/* Only show Key People if NOT 'alten' */}
         {!isAlten && (
           <Link
@@ -92,7 +117,7 @@ export default function Navbar({ user, onLogout }) {
             Key People
           </Link>
         )}
-        
+
         {/* Only show Insert dropdown if NOT 'alten' */}
         {!isAlten && (
           <div
@@ -182,7 +207,7 @@ export default function Navbar({ user, onLogout }) {
           </div>
         )}
       </div>
-      
+
       <button
         onClick={logout}
         style={{

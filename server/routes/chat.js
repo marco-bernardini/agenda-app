@@ -2,6 +2,7 @@ import express from "express";
 import { OpenAI } from "openai";
 import pool from "../models/db.js"; // Change this line (was "../db.js")
 
+// placeholder
 const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 

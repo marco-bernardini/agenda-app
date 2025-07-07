@@ -5,6 +5,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm"; // <-- Add this import
 import abstractBg from "/Abstract.jpg";
 
+// placeholder
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 export default function Chat() {

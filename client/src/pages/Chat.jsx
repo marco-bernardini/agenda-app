@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
-import remarkBreaks from 'remark-breaks';
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm"; // <-- Add this import
 import abstractBg from "/Abstract.jpg";
 
 export default function Chat() {
@@ -44,13 +45,16 @@ export default function Chat() {
         ...msgs,
         {
           from: "Bot",
-          text: res.data.naturalResponse || JSON.stringify(res.data.rows, null, 2),
+          text:
+            res.data.naturalResponse || JSON.stringify(res.data.rows, null, 2),
         },
       ]);
     } catch (err) {
       console.error("❌ Error:", err);
       const errorDetails = err.response
-        ? `Status: ${err.response.status}, Message: ${err.response.data?.error || "Unknown error"}`
+        ? `Status: ${err.response.status}, Message: ${
+            err.response.data?.error || "Unknown error"
+          }`
         : err.message || "Network error";
 
       console.error("Error details:", errorDetails);
@@ -132,23 +136,64 @@ export default function Chat() {
                 {m.from === "Utente" ? (
                   m.text
                 ) : (
-                  <pre
-                    style={{
-                      width: "100%",
-                      fontFamily: "'Consolas', 'Courier New', monospace",
-                      fontSize: "0.95rem",
-                      background: "#eaf1ff",
-                      color: "#2A66DD",
-                      borderRadius: 16,
-                      padding: "8px 16px",
-                      margin: 0,
-                      whiteSpace: "pre-wrap", // preserves both spaces and line breaks, but allows wrapping
-                      wordBreak: "break-word",
-                      overflowX: "auto"
+                  <ReactMarkdown
+                    remarkPlugins={[remarkBreaks, remarkGfm]}
+                    components={{
+                      table: ({ node, ...props }) => (
+                        <table
+                          style={{
+                            borderCollapse: "collapse",
+                            width: "100%",
+                            margin: "12px 0",
+                            background: "#fff",
+                          }}
+                          {...props}
+                        />
+                      ),
+                      th: ({ node, ...props }) => (
+                        <th
+                          style={{
+                            border: "1px solid #2A66DD",
+                            background: "#2A66DD",
+                            color: "#fff",
+                            padding: "6px 8px",
+                            fontWeight: "bold",
+                          }}
+                          {...props}
+                        />
+                      ),
+                      td: ({ node, ...props }) => (
+                        <td
+                          style={{
+                            border: "1px solid #e0e7ef",
+                            padding: "6px 8px",
+                            color: "#23272f",
+                          }}
+                          {...props}
+                        />
+                      ),
+                      pre: ({ node, ...props }) => (
+                        <pre
+                          style={{
+                            width: "100%",
+                            fontFamily: "'Consolas', 'Courier New', monospace",
+                            fontSize: "0.95rem",
+                            background: "#eaf1ff",
+                            color: "#2A66DD",
+                            borderRadius: 16,
+                            padding: "8px 16px",
+                            margin: 0,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            overflowX: "auto",
+                          }}
+                          {...props}
+                        />
+                      ),
                     }}
                   >
                     {m.text}
-                  </pre>
+                  </ReactMarkdown>
                 )}
               </span>
             </div>

@@ -253,10 +253,7 @@ router.post("/chat", async (req, res) => {
       2. Keep columns reasonably narrow, summarizing content if it exceeds 30 characters
       3. Do not include hours or ID numbers in the answers
       4. DO NOT mention SQL or queries in your response.
-      5. Do NOT add empty lines within tables structure
-      6. Format tables as a continuous block with header, separator, and data rows
-      7. Add a blank line BEFORE and AFTER tables, but not between rows
-      8. Add whitespaces to make the columns align nicely
+      5. format the response in Markdown with a table for results
       `;
 
     const resultCompletion = await openai.chat.completions.create({

@@ -37,7 +37,7 @@ export default function Chat() {
 
     try {
       console.log("📤 Sending question to backend:", input);
-      const res = await axios.post(`${API_BASE_URL}/api/chat`, {
+      const res = await axios.post(`${API_BASE_URL}/chat`, {
         question: input,
         history, // send history to backend
       });

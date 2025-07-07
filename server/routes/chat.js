@@ -251,7 +251,7 @@ router.post("/chat", async (req, res) => {
 
       Rules:
       1. Always include customer names (denominazione_cliente in clienti table) in the results, where applicable.
-      2. Keep columns reasonably narrow, summarizing content if it exceeds 30 characters
+      2. Summarize abbreviating content if it exceeds 30 characters
       3. Do not include hours or ID numbers in the answers
       4. DO NOT mention SQL or queries in your response.
       5. format the response in Markdown with a table for results

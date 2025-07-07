@@ -80,15 +80,15 @@ export default function Chat() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "20px 20px 20px 20px",
+        padding: "20px",
         boxSizing: "border-box",
         marginTop: "60px",
       }}
     >
       <div
         style={{
-          maxWidth: 1200,
-          width: "100%",
+          width: "95%", // Take up 95% of the available width
+          margin: "auto", // Center horizontally
           height: "calc(100vh - 220px)",
           background: "white",
           borderRadius: 12,

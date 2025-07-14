@@ -14,6 +14,7 @@ import trattativeRouter from "./routes/trattative.js";
 import taskRouter from "./routes/task.js";
 import metricsRouter from "./routes/metrics.js";
 import chatRouter from "./routes/chat.js";
+import statsRouter from "./routes/stats.js";
 import { authLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import pool from "./models/db.js";
 
@@ -24,7 +25,8 @@ app.use(cors());
 app.use(express.json());
 
 // Test PostgreSQL connection
-pool.query("SELECT 1")
+pool
+  .query("SELECT 1")
   .then(() => {
     console.log("Database connection OK");
   })
@@ -54,6 +56,7 @@ app.use("/api/trattative", trattativeRouter);
 app.use("/api/tasks", taskRouter);
 app.use("/api/metrics", metricsRouter);
 app.use("/api", chatRouter);
+app.use("/api/stats", statsRouter);
 
 // Verify the chat router is mounted
 console.log("🚀 Routes mounted:");
